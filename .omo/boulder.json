@@ -1,0 +1,63 @@
+{
+  "schema_version": 2,
+  "active_work_id": "superpoint-visual-odometry-4e89fc8f",
+  "works": {
+    "superpoint-visual-odometry-4e89fc8f": {
+      "work_id": "superpoint-visual-odometry-4e89fc8f",
+      "active_plan": "/Users/kuang-yujeng/SLAM-DNN/.omo/plans/superpoint-visual-odometry.md",
+      "plan_name": "superpoint-visual-odometry",
+      "status": "active",
+      "started_at": "2026-06-01T16:16:23.144Z",
+      "updated_at": "2026-06-01T16:28:32.223Z",
+      "session_ids": [
+        "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb"
+      ],
+      "session_origins": {
+        "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct"
+      },
+      "agent": "atlas",
+      "task_sessions": {
+        "todo:1": {
+          "task_key": "todo:1",
+          "task_label": "1",
+          "task_title": "**Matching Strategy** — compare LightGlue (neural) vs Classic (BF/FLANN + Lowe's ratio)",
+          "session_id": "opencode:ses_17c0632b6ffeNJhAxE6GDG8vFF",
+          "agent": "Sisyphus-Junior",
+          "category": "writing",
+          "updated_at": "2026-06-01T16:28:32.223Z",
+          "started_at": "2026-06-01T16:20:52.042Z",
+          "status": "completed",
+          "ended_at": "2026-06-01T16:28:32.223Z",
+          "elapsed_ms": 460181
+        }
+      }
+    }
+  },
+  "active_plan": "/Users/kuang-yujeng/SLAM-DNN/.omo/plans/superpoint-visual-odometry.md",
+  "started_at": "2026-06-01T16:16:23.144Z",
+  "status": "active",
+  "updated_at": "2026-06-01T16:28:32.223Z",
+  "session_ids": [
+    "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb"
+  ],
+  "session_origins": {
+    "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct"
+  },
+  "plan_name": "superpoint-visual-odometry",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "**Matching Strategy** — compare LightGlue (neural) vs Classic (BF/FLANN + Lowe's ratio)",
+      "session_id": "opencode:ses_17c0632b6ffeNJhAxE6GDG8vFF",
+      "agent": "Sisyphus-Junior",
+      "category": "writing",
+      "updated_at": "2026-06-01T16:28:32.223Z",
+      "started_at": "2026-06-01T16:20:52.042Z",
+      "status": "completed",
+      "ended_at": "2026-06-01T16:28:32.223Z",
+      "elapsed_ms": 460181
+    }
+  },
+  "agent": "atlas"
+}
