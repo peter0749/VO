@@ -1,0 +1,3 @@
+[submodule "baselines/minislam"]
+	path = baselines/minislam
+	url = https://github.com/markoelez/minislam.git
