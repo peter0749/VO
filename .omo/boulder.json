@@ -8,7 +8,7 @@
       "plan_name": "superpoint-visual-odometry",
       "status": "active",
       "started_at": "2026-06-01T16:16:23.144Z",
-      "updated_at": "2026-06-01T18:49:44.262Z",
+      "updated_at": "2026-06-01T19:15:52.508Z",
       "session_ids": [
         "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb",
         "opencode:ses_17bf98871ffe8OYtcUeVor1yEa",
@@ -27,7 +27,9 @@
         "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv",
         "opencode:ses_17b8d53a0ffeKMwYma5s5nzxh7",
         "opencode:ses_17b8ce93affeL9FIl6xX31F2A2",
-        "opencode:ses_17b8c760effexpnNHHG7ba1vSl"
+        "opencode:ses_17b8c760effexpnNHHG7ba1vSl",
+        "opencode:ses_17b787e70ffeqhAgWErA7PU3W4",
+        "opencode:ses_17b77240dfferwJtOPT9VxxqX0"
       ],
       "session_origins": {
         "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct",
@@ -47,7 +49,9 @@
         "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv": "appended",
         "opencode:ses_17b8d53a0ffeKMwYma5s5nzxh7": "appended",
         "opencode:ses_17b8ce93affeL9FIl6xX31F2A2": "appended",
-        "opencode:ses_17b8c760effexpnNHHG7ba1vSl": "appended"
+        "opencode:ses_17b8c760effexpnNHHG7ba1vSl": "appended",
+        "opencode:ses_17b787e70ffeqhAgWErA7PU3W4": "appended",
+        "opencode:ses_17b77240dfferwJtOPT9VxxqX0": "appended"
       },
       "agent": "atlas",
       "task_sessions": {
@@ -172,6 +176,19 @@
           "updated_at": "2026-06-01T18:49:44.262Z",
           "ended_at": "2026-06-01T18:49:44.262Z",
           "status": "completed"
+        },
+        "final-wave:f1": {
+          "task_key": "final-wave:f1",
+          "task_label": "F1",
+          "task_title": "**Plan Compliance Audit** — `oracle`",
+          "session_id": "opencode:ses_17b6e4b50ffelAHWEOtsaheL29",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "started_at": "2026-06-01T19:14:05.512Z",
+          "status": "completed",
+          "updated_at": "2026-06-01T19:15:52.508Z",
+          "ended_at": "2026-06-01T19:15:52.508Z",
+          "elapsed_ms": 106996
         }
       }
     }
@@ -179,7 +196,7 @@
   "active_plan": "/Users/kuang-yujeng/SLAM-DNN/.omo/plans/superpoint-visual-odometry.md",
   "started_at": "2026-06-01T16:16:23.144Z",
   "status": "active",
-  "updated_at": "2026-06-01T18:49:44.262Z",
+  "updated_at": "2026-06-01T19:15:52.508Z",
   "session_ids": [
     "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb",
     "opencode:ses_17bf98871ffe8OYtcUeVor1yEa",
@@ -198,7 +215,9 @@
     "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv",
     "opencode:ses_17b8d53a0ffeKMwYma5s5nzxh7",
     "opencode:ses_17b8ce93affeL9FIl6xX31F2A2",
-    "opencode:ses_17b8c760effexpnNHHG7ba1vSl"
+    "opencode:ses_17b8c760effexpnNHHG7ba1vSl",
+    "opencode:ses_17b787e70ffeqhAgWErA7PU3W4",
+    "opencode:ses_17b77240dfferwJtOPT9VxxqX0"
   ],
   "session_origins": {
     "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct",
@@ -218,7 +237,9 @@
     "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv": "appended",
     "opencode:ses_17b8d53a0ffeKMwYma5s5nzxh7": "appended",
     "opencode:ses_17b8ce93affeL9FIl6xX31F2A2": "appended",
-    "opencode:ses_17b8c760effexpnNHHG7ba1vSl": "appended"
+    "opencode:ses_17b8c760effexpnNHHG7ba1vSl": "appended",
+    "opencode:ses_17b787e70ffeqhAgWErA7PU3W4": "appended",
+    "opencode:ses_17b77240dfferwJtOPT9VxxqX0": "appended"
   },
   "plan_name": "superpoint-visual-odometry",
   "task_sessions": {
@@ -343,6 +364,19 @@
       "updated_at": "2026-06-01T18:49:44.262Z",
       "ended_at": "2026-06-01T18:49:44.262Z",
       "status": "completed"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "opencode:ses_17b6e4b50ffelAHWEOtsaheL29",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "started_at": "2026-06-01T19:14:05.512Z",
+      "status": "completed",
+      "updated_at": "2026-06-01T19:15:52.508Z",
+      "ended_at": "2026-06-01T19:15:52.508Z",
+      "elapsed_ms": 106996
     }
   },
   "agent": "atlas"
