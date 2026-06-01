@@ -256,7 +256,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
   **Commit**: NO (groups with Wave 1)
 
-- [ ] 2. Project Scaffolding + Dependencies
+- [x] 2. Project Scaffolding + Dependencies
 
   **What to do**:
   - 建立專案結構：
