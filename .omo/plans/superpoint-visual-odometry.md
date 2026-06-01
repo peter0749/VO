@@ -778,7 +778,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
   **Commit**: NO (groups with Wave 3)
 
-- [ ] 9. End-to-End Prototype Script
+- [x] 9. End-to-End Prototype Script
 
   **What to do**:
   - 建立 `run_vo.py`（專案根目錄），整合 Tasks 2-8 的所有模組：
