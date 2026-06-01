@@ -20,12 +20,12 @@ import torch
 from pathlib import Path
 
 from slam_dnn import (
-    SuperPointExtractor,
-    LightGlueMatcher,
-    ClassicMatcher,
-    estimate_essential,
-    TrajectoryAccumulator,
-    K_from_fov,
+    VisualOdometry,
+    PinholeCamera,
+    export_kitti_format,
+    export_tum_format,
+    load_kitti_format,
+    load_tum_format,
 )
 from slam_dnn.visualization import plot_trajectory_comparison
 
@@ -34,52 +34,13 @@ from slam_dnn.visualization import plot_trajectory_comparison
 # Output helpers
 # ---------------------------------------------------------------------------
 
-def save_trajectory_kitti(poses: list, filepath: Path) -> None:
-    """Save trajectory in KITTI format (12 floats per line, 3x4 row-major)."""
-    with open(filepath, "w") as f:
-        for T in poses:
-            T_3x4 = T[:3, :]
-            f.write(" ".join(f"{x:.6f}" for x in T_3x4.flatten()) + "\n")
-
-
-def save_trajectory_tum(poses: list, timestamps: list, filepath: Path) -> None:
-    """Save trajectory in TUM format (timestamp tx ty tz qx qy qz qw)."""
-    from scipy.spatial.transform import Rotation
-
-    with open(filepath, "w") as f:
-        for t, T in zip(timestamps, poses):
-            tx, ty, tz = T[:3, 3]
-            quat = Rotation.from_matrix(T[:3, :3]).as_quat()  # [x, y, z, w]
-            f.write(
-                f"{t:.6f} {tx:.6f} {ty:.6f} {tz:.6f} "
-                f"{quat[0]:.6f} {quat[1]:.6f} {quat[2]:.6f} {quat[3]:.6f}\n"
-            )
-
-
 def load_ground_truth_tum(filepath: Path) -> list:
     """Load ground truth trajectory in TUM format (timestamp tx ty tz qx qy qz qw).
 
     Returns:
         List of 4x4 SE3 matrices.
     """
-    from scipy.spatial.transform import Rotation
-
-    poses = []
-    with open(filepath) as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            vals = line.split()
-            if len(vals) < 8:
-                continue
-            tx, ty, tz = float(vals[1]), float(vals[2]), float(vals[3])
-            qx, qy, qz, qw = float(vals[4]), float(vals[5]), float(vals[6]), float(vals[7])
-            R = Rotation.from_quat([qx, qy, qz, qw]).as_matrix()
-            T = np.eye(4, dtype=np.float64)
-            T[:3, :3] = R
-            T[:3, 3] = [tx, ty, tz]
-            poses.append(T)
+    poses, _ = load_tum_format(str(filepath))
     return poses
 
 
@@ -89,19 +50,7 @@ def load_ground_truth_kitti(filepath: Path) -> list:
     Returns:
         List of 4x4 SE3 matrices.
     """
-    poses = []
-    with open(filepath) as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            vals = line.split()
-            if len(vals) < 12:
-                continue
-            T = np.eye(4, dtype=np.float64)
-            T[:3, :] = np.array([float(x) for x in vals]).reshape(3, 4)
-            poses.append(T)
-    return poses
+    return load_kitti_format(str(filepath))
 
 
 def load_ground_truth(filepath: Path) -> list:
@@ -193,36 +142,29 @@ def run_pipeline(args) -> None:
     print(f"Found {n_frames} frames in {input_dir}")
     print(f"Device: {device}, Matcher: {args.matcher}, FOV: {args.fov}°")
 
-    # --- Load first image to get dimensions for K ---
+    # --- Load first image to get dimensions for camera ---
     img0 = cv2.imread(str(image_paths[0]), cv2.IMREAD_COLOR)
     if img0 is None:
         print(f"ERROR: Could not read {image_paths[0]}", file=sys.stderr)
         sys.exit(1)
     h, w = img0.shape[:2]
-    K = K_from_fov(w, h, fov_deg=args.fov)
-    del img0  # free memory
+    del img0
 
-    # --- Initialize components ---
-    extractor = SuperPointExtractor(
-        max_keypoints=args.max_keypoints, device=device
+    # --- Initialize VisualOdometry facade ---
+    cam = PinholeCamera(width=w, height=h, fov_deg=args.fov)
+    vo = VisualOdometry(
+        cam,
+        matcher=args.matcher,
+        max_keypoints=args.max_keypoints,
+        scale=args.scale,
+        device=device,
     )
-    if args.matcher == "lightglue":
-        matcher = LightGlueMatcher(device=device)
-    else:
-        matcher = ClassicMatcher()
 
-    trajectory = TrajectoryAccumulator(scale=args.scale)
-
-    # --- Pipeline state ---
-    tracking_lost = 0
-    pose_failed = 0
-    successful = 0
+    # --- Pipeline ---
     frame_timestamps = [0.0]
 
     print(f"\nProcessing {n_frames} frames...")
     t_start = time.time()
-
-    prev_feats = None
 
     for i in range(n_frames):
         img = cv2.imread(str(image_paths[i]), cv2.IMREAD_COLOR)
@@ -232,75 +174,42 @@ def run_pipeline(args) -> None:
             continue
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        feats = extractor.extract(gray)
+        pose = vo.process_frame(gray)
 
-        # LightGlueMatcher expects descriptors in (D, N) format
-        # (SuperPointExtractor returns (N, D); the matcher transposes again)
-        if args.matcher == "lightglue":
-            feats["descriptors"] = feats["descriptors"].T
-
-        if prev_feats is None:
-            prev_feats = feats
+        if pose is not None:
+            frame_timestamps.append(float(i))
             if args.verbose:
-                print(f"  Frame {i}: first frame, {len(feats['keypoints'])} keypoints")
-            continue
-
-        match_result = matcher.match(prev_feats, feats)
-        n_matches = len(match_result["points0"])
-
-        if n_matches < 20:
-            tracking_lost += 1
-            if args.verbose:
-                print(f"  Frame {i}: tracking_lost ({n_matches} matches < 20)")
-            prev_feats = feats
-            continue
-
-        result = estimate_essential(
-            match_result["points0"], match_result["points1"], K
-        )
-
-        if result is None:
-            pose_failed += 1
-            if args.verbose:
-                print(f"  Frame {i}: pose_failed")
-            prev_feats = feats
-            continue
-
-        R, t, inlier_mask = result
-        trajectory.add_pose(R, t)
-        successful += 1
-        frame_timestamps.append(float(i))
-
-        if args.verbose:
-            pos = trajectory.get_positions()[-1]
-            print(
-                f"  Frame {i}: OK | matches={n_matches} inliers={inlier_mask.sum()} "
-                f"| pos=[{pos[0]:.4f}, {pos[1]:.4f}, {pos[2]:.4f}]"
-            )
-
-        prev_feats = feats
+                pos = vo.get_trajectory().get_positions()[-1]
+                print(
+                    f"  Frame {i}: OK "
+                    f"| pos=[{pos[0]:.4f}, {pos[1]:.4f}, {pos[2]:.4f}]"
+                )
+        else:
+            if args.verbose and i > 0:
+                print(f"  Frame {i}: tracking failed")
 
     elapsed = time.time() - t_start
     print(f"\nDone in {elapsed:.1f}s")
 
     # --- Summary ---
-    total_processed = n_frames - 1  # first frame is reference only
+    stats = vo.get_stats()
+    total_processed = n_frames - 1
     print(f"\nSummary:")
     print(f"  Total frames:      {n_frames}")
     print(f"  Processed pairs:   {total_processed}")
-    print(f"  Successful:        {successful}")
-    print(f"  Tracking lost:     {tracking_lost}")
-    print(f"  Pose failed:       {pose_failed}")
+    print(f"  Successful:        {stats['successful']}")
+    print(f"  Tracking lost:     {stats['tracking_lost']}")
+    print(f"  Pose failed:       {stats['pose_failed']}")
 
     # --- Save outputs ---
-    poses = trajectory.get_poses()
+    poses = vo.get_trajectory().get_poses()
 
     kitti_path = output_dir / "trajectory_kitti.txt"
     tum_path = output_dir / "trajectory_tum.txt"
     plot_path = output_dir / "trajectory_plot.png"
 
-    save_trajectory_kitti(poses, kitti_path)
-    save_trajectory_tum(poses, frame_timestamps, tum_path)
+    export_kitti_format(poses, kitti_path)
+    export_tum_format(poses, tum_path, timestamps=frame_timestamps)
 
     # --- Load optional ground truth ---
     gt_poses = None

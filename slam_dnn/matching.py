@@ -7,24 +7,52 @@ from lightglue import LightGlue
 
 
 class MatcherBase(ABC):
-    """Abstract base class for feature matchers."""
+    """Abstract base class for feature matchers.
+
+    All matchers must implement this interface so they can be swapped
+    in/out without code changes. This enables the strategy pattern:
+    VisualOdometry doesn't care which matcher it uses.
+    """
 
     @abstractmethod
-    def match(self, feats0: dict, feats1: dict) -> dict:
-        """Match features between two images.
+    def match(self, feats0: dict, feats1: dict, image_size: tuple | None = None) -> dict:
+        """Match features between two frames.
 
         Args:
-            feats0: Dict with keys "keypoints" (N,2) and "descriptors" (N,D).
-            feats1: Dict with keys "keypoints" (M,2) and "descriptors" (M,D).
+            feats0: Dict with keys "keypoints" (N, 2) float32,
+                   "descriptors" (N, 256) float32, "scores" (N,) float32.
+            feats1: Same format.
+            image_size: Optional (H, W) for better matching (LightGlue only).
 
         Returns:
-            Dict with keys:
-                - points0: (K,2) matched points in image 0
-                - points1: (K,2) matched points in image 1
-                - scores: (K,) normalized scores, higher = better
-                - indices: (K,2) corresponding indices in original features
+            Dict with:
+                - "points0": (K, 2) float32 — matched points in image 0
+                - "points1": (K, 2) float32 — matched points in image 1
+                - "scores": (K,) float32 — match confidence (higher = better)
+                - "indices": (K, 2) int32 — index pairs in original features
         """
         pass
+
+
+def create_matcher(method: str = "lightglue", **kwargs) -> MatcherBase:
+    """Factory: create matcher by name.
+
+    Args:
+        method: "lightglue" or "classic"
+        **kwargs: forwarded to matcher constructor
+
+    Returns:
+        MatcherBase instance
+    """
+    if method == "lightglue":
+        return LightGlueMatcher(**kwargs)
+    elif method == "classic":
+        kwargs.pop("device", None)
+        return ClassicMatcher(**kwargs)
+    else:
+        raise ValueError(
+            f"Unknown matcher method: {method!r}. Use 'lightglue' or 'classic'."
+        )
 
 
 class LightGlueMatcher(MatcherBase):
@@ -77,12 +105,12 @@ class LightGlueMatcher(MatcherBase):
             torch.from_numpy(feats1["keypoints"]).float().unsqueeze(0).to(self.device)
         )
 
-        # 2. Transpose descriptors: (N,256) → (256,N) → (1,256,N)
+        # 2. Add batch dim to descriptors: (N,256) → (1,N,256)
         desc0 = (
-            torch.from_numpy(feats0["descriptors"]).float().T.unsqueeze(0).to(self.device)
+            torch.from_numpy(feats0["descriptors"]).float().unsqueeze(0).to(self.device)
         )
         desc1 = (
-            torch.from_numpy(feats1["descriptors"]).float().T.unsqueeze(0).to(self.device)
+            torch.from_numpy(feats1["descriptors"]).float().unsqueeze(0).to(self.device)
         )
 
         # 3. Build input dicts for LightGlue
@@ -137,12 +165,15 @@ class ClassicMatcher(MatcherBase):
         ratio: float = 0.75,
         ransac_reproj_threshold: float = 3.0,
         method: str = "bf",
+        device: str = "cpu",
     ):
         """
         Args:
             ratio: Lowe's ratio test parameter (default 0.75, stricter = lower)
             ransac_reproj_threshold: RANSAC reprojection threshold
             method: 'bf' (brute-force) or 'flann'
+            device: Ignored (kept for MatcherBase interface compatibility);
+                    ClassicMatcher is always CPU-only since cv2 matchers are CPU.
         """
         self.ratio = ratio
         self.ransac_reproj_threshold = ransac_reproj_threshold
@@ -159,7 +190,7 @@ class ClassicMatcher(MatcherBase):
         else:
             raise ValueError(f"Unknown method: {method}")
 
-    def match(self, feats0: dict, feats1: dict) -> dict:
+    def match(self, feats0: dict, feats1: dict, image_size: tuple | None = None) -> dict:
         """Match features between two images using classic BF + ratio test.
 
         Args:

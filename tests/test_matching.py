@@ -8,6 +8,7 @@ from slam_dnn.matching import (
     ClassicMatcher,
     LightGlueMatcher,
     MatcherBase,
+    create_matcher,
 )
 
 
@@ -21,6 +22,40 @@ class TestMatcherBase:
     def test_classic_inherits_from_base(self):
         """ClassicMatcher inherits from MatcherBase."""
         assert issubclass(ClassicMatcher, MatcherBase)
+
+    def test_matcher_base_is_abstract(self):
+        """MatcherBase cannot be instantiated directly."""
+        with pytest.raises(TypeError):
+            MatcherBase()
+
+    def test_create_matcher_factory_lightglue(self):
+        """create_matcher('lightglue') returns LightGlueMatcher."""
+        matcher = create_matcher("lightglue", device="cpu")
+        assert isinstance(matcher, LightGlueMatcher)
+
+    def test_create_matcher_factory_classic(self):
+        """create_matcher('classic') returns ClassicMatcher."""
+        matcher = create_matcher("classic")
+        assert isinstance(matcher, ClassicMatcher)
+
+    def test_create_matcher_factory_unknown_raises(self):
+        """create_matcher with unknown method raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown matcher method"):
+            create_matcher("nonexistent")
+
+    def test_create_matcher_forwards_kwargs(self):
+        """create_matcher passes kwargs to constructor."""
+        matcher = create_matcher("classic", ratio=0.5)
+        assert isinstance(matcher, ClassicMatcher)
+        assert matcher.ratio == 0.5
+
+    def test_matcher_base_subclass_must_implement_match(self):
+        """Subclass without match() cannot be instantiated."""
+        class IncompleteMatcher(MatcherBase):
+            pass
+
+        with pytest.raises(TypeError):
+            IncompleteMatcher()
 
 
 class TestClassicMatcher:
@@ -184,7 +219,7 @@ def _extract_superpoint_feats(image: np.ndarray, max_kpts: int = 200) -> dict:
 
     return {
         "keypoints": feats["keypoints"][0].cpu().numpy().astype(np.float32),
-        "descriptors": feats["descriptors"][0].T.cpu().numpy().astype(np.float32),
+        "descriptors": feats["descriptors"][0].cpu().numpy().astype(np.float32),
         "scores": feats["keypoint_scores"][0].cpu().numpy().astype(np.float32),
     }
 

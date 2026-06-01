@@ -1029,7 +1029,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
 ### Wave 5: Module Refactor (After Phase 1 Complete, All Parallel)
 
-- [ ] 12. Modular Package Refactor + MatcherBase Interface
+- [x] 12. Modular Package Refactor + MatcherBase Interface
 
   **What to do**:
   - 定義 `slam_dnn/matching.py` 中的 abstract base class：
@@ -1128,7 +1128,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
   - Message: `refactor: modular package structure with MatcherBase interface and VisualOdometry class`
   - Files: `slam_dnn/__init__.py`, `slam_dnn/matching.py`, `slam_dnn/vo.py`, `run_vo.py`
 
-- [ ] 13. FrameLoader (Image Directories + Video Files)
+- [x] 13. FrameLoader (Image Directories + Video Files)
 
   **What to do**:
   - 建立 `slam_dnn/io.py`：
@@ -1207,7 +1207,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
   **Commit**: NO (groups with Wave 5)
 
-- [ ] 14. Dual Trajectory Export (KITTI + TUM)
+- [x] 14. Dual Trajectory Export (KITTI + TUM)
 
   **What to do**:
   - 建立 `slam_dnn/export.py`：

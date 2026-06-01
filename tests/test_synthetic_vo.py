@@ -81,8 +81,8 @@ def classic_matcher():
 
 
 def _prepare_for_lg(feats: dict) -> dict:
-    """Transpose descriptors to (D, N) for LightGlueMatcher (see run_vo.py)."""
-    return {**feats, "descriptors": feats["descriptors"].T}
+    """Pass features through unchanged (descriptors already (N, 256))."""
+    return feats
 
 
 def run_pipeline(

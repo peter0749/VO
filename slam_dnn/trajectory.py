@@ -152,3 +152,20 @@ class TrajectoryAccumulator:
     def __len__(self) -> int:
         """Return number of accumulated poses (including initial identity)."""
         return len(self.poses)
+
+    def save(self, filepath: str, format: str = "kitti", **kwargs) -> None:
+        """Save trajectory to file.
+
+        Args:
+            filepath: Output file path (e.g. 'trajectory.txt').
+            format: 'kitti' or 'tum'.
+            **kwargs: Forwarded to export function (e.g. timestamps for TUM).
+        """
+        from .export import export_kitti_format, export_tum_format
+
+        if format == "kitti":
+            export_kitti_format(self.get_poses(), filepath)
+        elif format == "tum":
+            export_tum_format(self.get_poses(), filepath, **kwargs)
+        else:
+            raise ValueError(f"Unknown format: {format!r}. Use 'kitti' or 'tum'.")
