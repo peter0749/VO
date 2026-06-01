@@ -415,7 +415,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
 ### Wave 2: Feature Extraction + Matching (After Wave 1)
 
-- [ ] 4. SuperPoint Feature Extraction Wrapper
+- [x] 4. SuperPoint Feature Extraction Wrapper
 
   **What to do**:
   - 在 `slam_dnn/features.py` 實作 `SuperPointExtractor` 類別：
@@ -492,7 +492,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
   **Commit**: NO (groups with Wave 2)
 
-- [ ] 5. LightGlue Matcher Integration
+- [x] 5. LightGlue Matcher Integration
 
   **What to do**:
   - 在 `slam_dnn/matching.py` 實作 `LightGlueMatcher` 類別：
@@ -559,7 +559,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
   **Commit**: NO (groups with Wave 2)
 
-- [ ] 6. Classic Matcher (BF + Lowe's Ratio Test)
+- [x] 6. Classic Matcher (BF + Lowe's Ratio Test)
 
   **What to do**:
   - 在 `slam_dnn/matching.py` 增加 `ClassicMatcher` 類別（與 Task 5 同檔案）：
@@ -630,7 +630,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
 ### Wave 3: Pose Estimation + Integration (After Wave 2)
 
-- [ ] 7. Essential Matrix Pose Estimation
+- [x] 7. Essential Matrix Pose Estimation
 
   **What to do**:
   - 在 `slam_dnn/pose.py` 實作：
@@ -703,7 +703,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
   **Commit**: NO (groups with Wave 3)
 
-- [ ] 8. SE3 Trajectory Accumulation
+- [x] 8. SE3 Trajectory Accumulation
 
   **What to do**:
   - 在 `slam_dnn/trajectory.py` 增加（擴充 Task 3 的模組）：

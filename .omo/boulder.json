@@ -8,18 +8,26 @@
       "plan_name": "superpoint-visual-odometry",
       "status": "active",
       "started_at": "2026-06-01T16:16:23.144Z",
-      "updated_at": "2026-06-01T16:38:14.817Z",
+      "updated_at": "2026-06-01T16:44:07.575Z",
       "session_ids": [
         "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb",
         "opencode:ses_17bf98871ffe8OYtcUeVor1yEa",
         "opencode:ses_17bf94330ffexBzoQkeiKP31e3",
-        "opencode:ses_17bf8ecf2ffe56lkWCNd8uoy8s"
+        "opencode:ses_17bf8ecf2ffe56lkWCNd8uoy8s",
+        "opencode:ses_17bf150c8ffeOHI0XnwfXNPX5z",
+        "opencode:ses_17bf0c862ffepSPA8gzGHput2L",
+        "opencode:ses_17bf01912ffeS46xEc6syFCH9L",
+        "opencode:ses_17befb54cffeZ4959OpQ4a6xRc"
       ],
       "session_origins": {
         "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct",
         "opencode:ses_17bf98871ffe8OYtcUeVor1yEa": "appended",
         "opencode:ses_17bf94330ffexBzoQkeiKP31e3": "appended",
-        "opencode:ses_17bf8ecf2ffe56lkWCNd8uoy8s": "appended"
+        "opencode:ses_17bf8ecf2ffe56lkWCNd8uoy8s": "appended",
+        "opencode:ses_17bf150c8ffeOHI0XnwfXNPX5z": "appended",
+        "opencode:ses_17bf0c862ffepSPA8gzGHput2L": "appended",
+        "opencode:ses_17bf01912ffeS46xEc6syFCH9L": "appended",
+        "opencode:ses_17befb54cffeZ4959OpQ4a6xRc": "appended"
       },
       "agent": "atlas",
       "task_sessions": {
@@ -57,8 +65,21 @@
           "agent": "Sisyphus-Junior",
           "category": "quick",
           "started_at": "2026-06-01T16:38:14.385Z",
-          "status": "running",
-          "updated_at": "2026-06-01T16:38:14.818Z"
+          "status": "completed",
+          "updated_at": "2026-06-01T16:39:25.321Z",
+          "ended_at": "2026-06-01T16:39:25.321Z",
+          "elapsed_ms": 70936
+        },
+        "todo:7": {
+          "task_key": "todo:7",
+          "task_label": "7",
+          "task_title": "Essential Matrix Pose Estimation",
+          "session_id": "opencode:ses_17befb54cffeZ4959OpQ4a6xRc",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "updated_at": "2026-06-01T16:44:07.575Z",
+          "ended_at": "2026-06-01T16:44:07.575Z",
+          "status": "completed"
         }
       }
     }
@@ -66,18 +87,26 @@
   "active_plan": "/Users/kuang-yujeng/SLAM-DNN/.omo/plans/superpoint-visual-odometry.md",
   "started_at": "2026-06-01T16:16:23.144Z",
   "status": "active",
-  "updated_at": "2026-06-01T16:38:14.817Z",
+  "updated_at": "2026-06-01T16:44:07.575Z",
   "session_ids": [
     "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb",
     "opencode:ses_17bf98871ffe8OYtcUeVor1yEa",
     "opencode:ses_17bf94330ffexBzoQkeiKP31e3",
-    "opencode:ses_17bf8ecf2ffe56lkWCNd8uoy8s"
+    "opencode:ses_17bf8ecf2ffe56lkWCNd8uoy8s",
+    "opencode:ses_17bf150c8ffeOHI0XnwfXNPX5z",
+    "opencode:ses_17bf0c862ffepSPA8gzGHput2L",
+    "opencode:ses_17bf01912ffeS46xEc6syFCH9L",
+    "opencode:ses_17befb54cffeZ4959OpQ4a6xRc"
   ],
   "session_origins": {
     "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct",
     "opencode:ses_17bf98871ffe8OYtcUeVor1yEa": "appended",
     "opencode:ses_17bf94330ffexBzoQkeiKP31e3": "appended",
-    "opencode:ses_17bf8ecf2ffe56lkWCNd8uoy8s": "appended"
+    "opencode:ses_17bf8ecf2ffe56lkWCNd8uoy8s": "appended",
+    "opencode:ses_17bf150c8ffeOHI0XnwfXNPX5z": "appended",
+    "opencode:ses_17bf0c862ffepSPA8gzGHput2L": "appended",
+    "opencode:ses_17bf01912ffeS46xEc6syFCH9L": "appended",
+    "opencode:ses_17befb54cffeZ4959OpQ4a6xRc": "appended"
   },
   "plan_name": "superpoint-visual-odometry",
   "task_sessions": {
@@ -115,8 +144,21 @@
       "agent": "Sisyphus-Junior",
       "category": "quick",
       "started_at": "2026-06-01T16:38:14.385Z",
-      "status": "running",
-      "updated_at": "2026-06-01T16:38:14.818Z"
+      "status": "completed",
+      "updated_at": "2026-06-01T16:39:25.321Z",
+      "ended_at": "2026-06-01T16:39:25.321Z",
+      "elapsed_ms": 70936
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "Essential Matrix Pose Estimation",
+      "session_id": "opencode:ses_17befb54cffeZ4959OpQ4a6xRc",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-06-01T16:44:07.575Z",
+      "ended_at": "2026-06-01T16:44:07.575Z",
+      "status": "completed"
     }
   },
   "agent": "atlas"
