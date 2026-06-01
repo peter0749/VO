@@ -6,6 +6,7 @@ from .features import SuperPointExtractor
 from .matching import ClassicMatcher, LightGlueMatcher
 from .pose import estimate_essential
 from .trajectory import TrajectoryAccumulator
+from . import visualization
 
 __all__ = [
     "K_from_fov",
@@ -15,4 +16,5 @@ __all__ = [
     "TrackingLostError",
     "estimate_essential",
     "TrajectoryAccumulator",
+    "visualization",
 ]

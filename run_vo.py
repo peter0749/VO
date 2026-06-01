@@ -27,6 +27,7 @@ from slam_dnn import (
     TrajectoryAccumulator,
     K_from_fov,
 )
+from slam_dnn.visualization import plot_trajectory_comparison
 
 
 # ---------------------------------------------------------------------------
@@ -55,41 +56,95 @@ def save_trajectory_tum(poses: list, timestamps: list, filepath: Path) -> None:
             )
 
 
-def plot_trajectory(poses: list, output_path: Path) -> None:
-    """Generate top-down trajectory plot with start/end markers."""
-    import matplotlib
-    matplotlib.use("Agg")  # headless backend
-    import matplotlib.pyplot as plt
+def load_ground_truth_tum(filepath: Path) -> list:
+    """Load ground truth trajectory in TUM format (timestamp tx ty tz qx qy qz qw).
 
+    Returns:
+        List of 4x4 SE3 matrices.
+    """
+    from scipy.spatial.transform import Rotation
+
+    poses = []
+    with open(filepath) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            vals = line.split()
+            if len(vals) < 8:
+                continue
+            tx, ty, tz = float(vals[1]), float(vals[2]), float(vals[3])
+            qx, qy, qz, qw = float(vals[4]), float(vals[5]), float(vals[6]), float(vals[7])
+            R = Rotation.from_quat([qx, qy, qz, qw]).as_matrix()
+            T = np.eye(4, dtype=np.float64)
+            T[:3, :3] = R
+            T[:3, 3] = [tx, ty, tz]
+            poses.append(T)
+    return poses
+
+
+def load_ground_truth_kitti(filepath: Path) -> list:
+    """Load ground truth trajectory in KITTI format (12 floats per line).
+
+    Returns:
+        List of 4x4 SE3 matrices.
+    """
+    poses = []
+    with open(filepath) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            vals = line.split()
+            if len(vals) < 12:
+                continue
+            T = np.eye(4, dtype=np.float64)
+            T[:3, :] = np.array([float(x) for x in vals]).reshape(3, 4)
+            poses.append(T)
+    return poses
+
+
+def load_ground_truth(filepath: Path) -> list:
+    """Auto-detect and load ground truth trajectory (TUM or KITTI format).
+
+    TUM format: lines have 8 values (timestamp + xyz + quat)
+    KITTI format: lines have 12 values (3x4 row-major)
+    """
+    with open(filepath) as f:
+        first_line = f.readline().strip()
+    n_vals = len(first_line.split())
+    if n_vals == 8:
+        return load_ground_truth_tum(filepath)
+    elif n_vals == 12:
+        return load_ground_truth_kitti(filepath)
+    else:
+        raise ValueError(
+            f"Cannot detect ground truth format: first line has {n_vals} values "
+            f"(expected 8 for TUM or 12 for KITTI)"
+        )
+
+
+def plot_trajectory(poses: list, output_path: Path, gt_poses: list | None = None) -> None:
+    """Generate top-down trajectory plot with start/end markers.
+
+    Uses slam_dnn.visualization.plot_trajectory_comparison for
+    publication-quality output with equal aspect ratio, grid, and legend.
+
+    Args:
+        poses: List of 4x4 SE3 matrices (estimated trajectory).
+        output_path: Path to save PNG plot.
+        gt_poses: Optional list of 4x4 SE3 matrices (ground truth).
+    """
     if not poses:
         return
 
-    # Use camera center positions (world frame) for the plot
-    positions = []
-    for T in poses:
-        R = T[:3, :3]
-        t = T[:3, 3]
-        c_world = -R.T @ t
-        positions.append(c_world)
-    positions = np.array(positions)
-
-    x = positions[:, 0]
-    z = positions[:, 2]
-
-    plt.figure(figsize=(10, 10))
-    plt.plot(x, z, "k-", linewidth=1, label="trajectory")
-    plt.plot(x[0], z[0], "go", markersize=12, label="start", zorder=10)
-    plt.plot(x[-1], z[-1], "ro", markersize=12, label="end", zorder=10)
-
-    plt.xlabel("X (m)")
-    plt.ylabel("Z (m)")
-    plt.title("Camera Trajectory (Top-Down View)")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.axis("equal")
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=150, bbox_inches="tight")
-    plt.close()
+    plot_trajectory_comparison(
+        estimated=poses,
+        ground_truth=gt_poses,
+        title="Camera Trajectory (Top-Down View)",
+        save_path=str(output_path),
+        show=False,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -246,12 +301,25 @@ def run_pipeline(args) -> None:
 
     save_trajectory_kitti(poses, kitti_path)
     save_trajectory_tum(poses, frame_timestamps, tum_path)
-    plot_trajectory(poses, plot_path)
+
+    # --- Load optional ground truth ---
+    gt_poses = None
+    if getattr(args, "ground_truth", None):
+        gt_path = Path(args.ground_truth)
+        if gt_path.exists():
+            gt_poses = load_ground_truth(gt_path)
+            print(f"  Loaded ground truth: {len(gt_poses)} poses from {gt_path}")
+        else:
+            print(f"WARNING: Ground truth file not found: {gt_path}", file=sys.stderr)
+
+    if not getattr(args, "no_plot", False):
+        plot_trajectory(poses, plot_path, gt_poses=gt_poses)
 
     print(f"\nOutputs:")
     print(f"  KITTI: {kitti_path} ({len(poses)} poses)")
     print(f"  TUM:   {tum_path} ({len(poses)} poses)")
-    print(f"  Plot:  {plot_path}")
+    if not getattr(args, "no_plot", False):
+        print(f"  Plot:  {plot_path}")
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +362,16 @@ def main():
     )
     parser.add_argument(
         "--verbose", action="store_true", help="Print detailed per-frame info"
+    )
+    parser.add_argument(
+        "--ground-truth",
+        default=None,
+        help="Path to ground truth trajectory file (TUM or KITTI format)",
+    )
+    parser.add_argument(
+        "--no-plot",
+        action="store_true",
+        help="Skip trajectory plot generation (faster for batch runs)",
     )
 
     args = parser.parse_args()

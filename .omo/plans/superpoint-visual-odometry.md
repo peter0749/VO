@@ -884,7 +884,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
 ### Wave 4: Phase 1 Verification (After Wave 3)
 
-- [ ] 10. Synthetic Pose Recovery Tests
+- [x] 10. Synthetic Pose Recovery Tests
 
   **What to do**:
   - 建立 `tests/test_synthetic.py` — 完整的合成場景 end-to-end 測試：
@@ -959,7 +959,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
   - Message: `test: synthetic pose recovery tests for VO pipeline validation`
   - Files: `tests/test_synthetic.py`, `tests/helpers.py`
 
-- [ ] 11. Trajectory Visualization + Prototype QA
+- [x] 11. Trajectory Visualization + Prototype QA
 
   **What to do**:
   - 在 `slam_dnn/viz.py` 實作：

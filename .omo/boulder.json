@@ -8,7 +8,7 @@
       "plan_name": "superpoint-visual-odometry",
       "status": "active",
       "started_at": "2026-06-01T16:16:23.144Z",
-      "updated_at": "2026-06-01T16:50:40.644Z",
+      "updated_at": "2026-06-01T17:43:48.665Z",
       "session_ids": [
         "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb",
         "opencode:ses_17bf98871ffe8OYtcUeVor1yEa",
@@ -18,7 +18,8 @@
         "opencode:ses_17bf0c862ffepSPA8gzGHput2L",
         "opencode:ses_17bf01912ffeS46xEc6syFCH9L",
         "opencode:ses_17befb54cffeZ4959OpQ4a6xRc",
-        "opencode:ses_17bed3b4effeYYpI1lui8kpoWL"
+        "opencode:ses_17bed3b4effeYYpI1lui8kpoWL",
+        "opencode:ses_17be66111ffeOupRJJRB4eW04b"
       ],
       "session_origins": {
         "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct",
@@ -29,7 +30,8 @@
         "opencode:ses_17bf0c862ffepSPA8gzGHput2L": "appended",
         "opencode:ses_17bf01912ffeS46xEc6syFCH9L": "appended",
         "opencode:ses_17befb54cffeZ4959OpQ4a6xRc": "appended",
-        "opencode:ses_17bed3b4effeYYpI1lui8kpoWL": "appended"
+        "opencode:ses_17bed3b4effeYYpI1lui8kpoWL": "appended",
+        "opencode:ses_17be66111ffeOupRJJRB4eW04b": "appended"
       },
       "agent": "atlas",
       "task_sessions": {
@@ -93,6 +95,19 @@
           "updated_at": "2026-06-01T16:50:40.644Z",
           "started_at": "2026-06-01T16:50:40.644Z",
           "status": "running"
+        },
+        "todo:10": {
+          "task_key": "todo:10",
+          "task_label": "10",
+          "task_title": "Synthetic Pose Recovery Tests",
+          "session_id": "opencode:ses_17be49fc2ffeC8vBJ7S5p0P4zQ",
+          "agent": "Sisyphus-Junior",
+          "category": "visual-engineering",
+          "updated_at": "2026-06-01T17:43:48.665Z",
+          "started_at": "2026-06-01T17:36:51.230Z",
+          "status": "completed",
+          "ended_at": "2026-06-01T17:43:48.665Z",
+          "elapsed_ms": 417435
         }
       }
     }
@@ -100,7 +115,7 @@
   "active_plan": "/Users/kuang-yujeng/SLAM-DNN/.omo/plans/superpoint-visual-odometry.md",
   "started_at": "2026-06-01T16:16:23.144Z",
   "status": "active",
-  "updated_at": "2026-06-01T16:50:40.644Z",
+  "updated_at": "2026-06-01T17:43:48.665Z",
   "session_ids": [
     "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb",
     "opencode:ses_17bf98871ffe8OYtcUeVor1yEa",
@@ -110,7 +125,8 @@
     "opencode:ses_17bf0c862ffepSPA8gzGHput2L",
     "opencode:ses_17bf01912ffeS46xEc6syFCH9L",
     "opencode:ses_17befb54cffeZ4959OpQ4a6xRc",
-    "opencode:ses_17bed3b4effeYYpI1lui8kpoWL"
+    "opencode:ses_17bed3b4effeYYpI1lui8kpoWL",
+    "opencode:ses_17be66111ffeOupRJJRB4eW04b"
   ],
   "session_origins": {
     "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct",
@@ -121,7 +137,8 @@
     "opencode:ses_17bf0c862ffepSPA8gzGHput2L": "appended",
     "opencode:ses_17bf01912ffeS46xEc6syFCH9L": "appended",
     "opencode:ses_17befb54cffeZ4959OpQ4a6xRc": "appended",
-    "opencode:ses_17bed3b4effeYYpI1lui8kpoWL": "appended"
+    "opencode:ses_17bed3b4effeYYpI1lui8kpoWL": "appended",
+    "opencode:ses_17be66111ffeOupRJJRB4eW04b": "appended"
   },
   "plan_name": "superpoint-visual-odometry",
   "task_sessions": {
@@ -185,6 +202,19 @@
       "updated_at": "2026-06-01T16:50:40.644Z",
       "started_at": "2026-06-01T16:50:40.644Z",
       "status": "running"
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "Synthetic Pose Recovery Tests",
+      "session_id": "opencode:ses_17be49fc2ffeC8vBJ7S5p0P4zQ",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-06-01T17:43:48.665Z",
+      "started_at": "2026-06-01T17:36:51.230Z",
+      "status": "completed",
+      "ended_at": "2026-06-01T17:43:48.665Z",
+      "elapsed_ms": 417435
     }
   },
   "agent": "atlas"
