@@ -208,3 +208,46 @@ class TestHelpers:
         f = to_float(img)
         assert f.dtype == np.float32
         assert np.allclose(f, 0.0)
+
+
+class TestFrameLoaderEdgeCases:
+    """Edge cases teaching defensive IO handling."""
+
+    def test_frame_loader_dir_with_only_non_image_files(self, tmp_path: Path):
+        """Directory with only .txt/.py files raises ValueError (no images found).
+
+        Teaches: FrameLoader filters by image extensions. A directory that
+        exists but contains no valid images is treated the same as an empty
+        directory — both raise ValueError with a clear message.
+        """
+        (tmp_path / "notes.txt").write_text("not an image")
+        (tmp_path / "script.py").write_text("# also not an image")
+        (tmp_path / "data.csv").write_text("1,2,3")
+
+        with pytest.raises(ValueError, match="No image files"):
+            FrameLoader(str(tmp_path))
+
+    def test_frame_loader_single_image(self, tmp_path: Path):
+        """A directory with exactly 1 image should work (not require >= 2).
+
+        Some users may test with a single frame. FrameLoader should handle
+        this gracefully, yielding exactly 1 frame without errors.
+        """
+        _make_png_path(tmp_path, "single.png")
+        loader = FrameLoader(str(tmp_path))
+        frames = list(loader)
+        assert len(frames) == 1
+        assert frames[0].shape == (48, 64, 3)
+
+    def test_frame_loader_hidden_files_ignored(self, tmp_path: Path):
+        """Hidden files (starting with '.') should be ignored by default.
+
+        macOS creates .DS_Store, editors create .swp files. These should
+        not be loaded as images even if they have image extensions.
+        """
+        _make_png_path(tmp_path, "visible.png")
+        (tmp_path / ".hidden.png").touch()
+
+        loader = FrameLoader(str(tmp_path))
+        frames = list(loader)
+        assert len(frames) == 1

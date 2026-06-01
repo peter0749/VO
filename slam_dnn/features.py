@@ -6,7 +6,30 @@ from lightglue import SuperPoint
 
 
 class SuperPointExtractor:
-    """Wraps LightGlue's SuperPoint for feature extraction."""
+    """Wrapper around LightGlue's SuperPoint model for feature extraction.
+
+    SuperPoint detects keypoints and computes 256-dimensional descriptors
+    using a VGG backbone trained in a self-supervised manner. The wrapper
+    handles device placement, dtype normalization, and batch dimension
+    management.
+
+    Attributes:
+        device: Torch device where the model runs ('cuda', 'mps', or 'cpu').
+
+    Args:
+        nms_radius: Non-maximum suppression radius in pixels. Larger values
+            produce fewer, more spread-out keypoints. Default 4.
+        max_keypoints: Cap on total keypoints per image. Default 1024.
+        conf_thresh: Minimum detection confidence. Lower values detect more
+            keypoints at the cost of noise. Default 0.005.
+        device: Device string. 'auto' selects cuda if available, else cpu.
+
+    Example:
+        >>> extractor = SuperPointExtractor(max_keypoints=512, device='cpu')
+        >>> feats = extractor.extract(gray_image)
+        >>> feats['keypoints'].shape  # (N, 2)
+        >>> feats['descriptors'].shape  # (N, 256)
+    """
 
     def __init__(
         self,
@@ -15,13 +38,6 @@ class SuperPointExtractor:
         conf_thresh: float = 0.005,
         device: str = "auto",
     ):
-        """
-        Args:
-            nms_radius: Non-maximum suppression radius (default 4).
-            max_keypoints: Maximum keypoints per image (default 1024).
-            conf_thresh: Keypoint confidence threshold (default 0.005).
-            device: "auto" | "cuda" | "cpu".
-        """
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
@@ -35,14 +51,29 @@ class SuperPointExtractor:
     def extract(self, image: np.ndarray) -> dict:
         """Extract SuperPoint features from an image.
 
+        Converts uint8 input to float32 in [0, 1], and runs the model in
+        a single forward pass. Keypoints are returned in pixel coordinates
+        (x, y) with descriptors L2-normalized to unit length.
+
         Args:
-            image: numpy array, shape (H, W) or (H, W, 3), dtype uint8.
+            image: Grayscale or color image as uint8 ndarray. Shape (H, W)
+                for grayscale or (H, W, 3) for BGR/RGB.
 
         Returns:
-            dict with:
-                - "keypoints": (N, 2) float32, pixel coordinates (x, y).
-                - "descriptors": (N, 256) float32, L2-normalized.
-                - "scores": (N,) float32, confidence scores.
+            Dictionary with:
+                - "keypoints": ndarray (N, 2) float32, pixel coordinates (x, y).
+                - "descriptors": ndarray (N, 256) float32, L2-normalized.
+                - "scores": ndarray (N,) float32, per-keypoint confidence.
+
+        Raises:
+            ValueError: If image is not 2D or 3D.
+
+        Example:
+            >>> extractor = SuperPointExtractor(max_keypoints=512, device='cpu')
+            >>> img = np.random.randint(0, 255, (480, 640), dtype=np.uint8)
+            >>> feats = extractor.extract(img)
+            >>> print(feats['keypoints'].shape, feats['descriptors'].shape)
+            (N, 2) (N, 256)
         """
         # Convert uint8 → float32 in [0, 1]
         img = image.astype(np.float32) / 255.0

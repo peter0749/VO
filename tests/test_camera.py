@@ -168,3 +168,80 @@ class TestExtractTranslations:
         result = extract_translations(poses)
         assert result.shape == (3, 3)
         npt.assert_allclose(result, [[1, 0, 0], [2, 0, 0], [3, 0, 0]])
+
+
+class TestKFromFovEdgeCases:
+    """Boundary conditions for the FOV-to-intrinsics conversion.
+
+    Teaches: K_from_fov has no input validation — it silently produces
+    inf/nan for degenerate FOV values. These tests document that behavior.
+    """
+
+    def test_k_from_fov_very_small_fov_produces_large_focal_length(self):
+        """FOV=1° gives an enormous focal length (≈18,331 px for 640-wide).
+
+        Telephoto lenses can have FOV < 5°. The formula fx = W/(2·tan(FOV/2))
+        grows without bound as FOV→0.
+        """
+        K = K_from_fov(640, 480, fov_deg=1.0)
+        fx = K[0, 0]
+        expected_fx = 320.0 / np.tan(np.deg2rad(0.5))
+        assert fx > 10000, f"Expected fx >> 10000 for 1° FOV, got {fx}"
+        npt.assert_allclose(fx, expected_fx)
+
+    def test_k_from_fov_180_fov_extreme(self):
+        """FOV=180° (hemispherical fisheye) gives fx→0 (tan(90°)→∞).
+
+        A 180° FOV is a limiting case: the focal length diverges to 0,
+        meaning every pixel maps to a huge solid angle. This is physically
+        possible in theory but breaks the pinhole model.
+        """
+        K = K_from_fov(640, 480, fov_deg=180.0)
+        fx = K[0, 0]
+        npt.assert_allclose(fx, 0.0, atol=1e-10)
+
+    def test_k_from_fov_near_zero_gives_inf(self):
+        """FOV=0° produces inf focal length (division by zero).
+
+        Documents that K_from_fov does NOT validate FOV — caller must ensure
+        fov_deg > 0. The result contains inf entries, which will silently
+        corrupt any downstream matrix multiplication.
+        """
+        K = K_from_fov(640, 480, fov_deg=0.0)
+        assert np.isinf(K[0, 0]), "Zero FOV should produce infinite focal length"
+
+    def test_k_matrix_determinant_positive(self):
+        """A valid K matrix has positive determinant (fx·fy·1 > 0).
+
+        This is a basic sanity check: a negative determinant would indicate
+        a left-handed coordinate system or negative focal length, both wrong.
+        """
+        K = K_from_fov(1920, 1080, fov_deg=75.0)
+        det = np.linalg.det(K)
+        assert det > 0, f"K determinant should be positive, got {det}"
+
+
+class TestPinholeCameraEdgeCases:
+    """Additional PinholeCamera boundary tests."""
+
+    def test_pinhole_camera_dataclass_fields(self):
+        """PinholeCamera exposes width, height, fov_deg as plain fields.
+
+        As a @dataclass, these are accessible for introspection, serialization,
+        or copy construction (e.g. `PinholeCamera(**asdict(cam))`).
+        """
+        cam = PinholeCamera(width=1280, height=720, fov_deg=90.0)
+        assert cam.width == 1280
+        assert cam.height == 720
+        assert cam.fov_deg == 90.0
+
+    def test_pinhole_camera_K_inv_roundtrip(self):
+        """K_inv is the true matrix inverse — verified via two-sided multiply.
+
+        Tests that K_inv @ K = I (not just K @ K_inv = I), confirming the
+        inverse was computed correctly in both directions.
+        """
+        cam = PinholeCamera(width=640, height=480, fov_deg=63.0)
+        npt.assert_allclose(cam.K_inv @ cam.K, np.eye(3), atol=1e-10)
+        npt.assert_allclose(cam.K @ cam.K_inv, np.eye(3), atol=1e-10)
+

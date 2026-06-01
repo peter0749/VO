@@ -12,24 +12,30 @@ def estimate_essential(
     ransac_thresh: float = 1.0,
     conf: float = 0.999,
 ) -> tuple | None:
-    """Estimate relative pose (R, t) from matched keypoints via Essential matrix.
+    """Estimate relative camera pose via the Essential matrix and 5-point RANSAC.
+
+    Uses OpenCV's 5-point algorithm to find the Essential matrix E from
+    normalized matched point pairs, then decomposes E with a chirality
+    check to get the unique physical rotation and translation.
+
+    The recovered translation has unit norm (only direction, not scale).
 
     Args:
-        points0: (N, 2) float32, matched keypoints in image 0 (pixel coords)
-        points1: (N, 2) float32, matched keypoints in image 1 (pixel coords)
-        K: (3, 3) intrinsic matrix
-        ransac_thresh: RANSAC inlier threshold in pixels (default 1.0)
-        conf: RANSAC confidence (default 0.999)
+        points0: Matched keypoints in the first frame, shape (N, 2), pixel coords.
+        points1: Matched keypoints in the second frame, same shape.
+        K: 3x3 camera intrinsic matrix.
+        ransac_thresh: RANSAC inlier threshold in pixels. Default 1.0.
+        conf: RANSAC confidence level. Default 0.999.
 
     Returns:
-        Tuple (R, t, inlier_mask) where:
-            - R: (3, 3) rotation matrix (camera 0 -> camera 1)
-            - t: (3,) translation vector (unit norm, up to scale)
-            - inlier_mask: (N,) boolean array of inlier matches
-        Returns None if insufficient matches or estimation fails.
+        Tuple (R, t, inlier_mask) where R is a 3x3 rotation matrix,
+        t is a unit-norm (3,) translation vector, and inlier_mask is a (N,)
+        boolean array. Returns None if too few matches or estimation fails.
 
     Note:
-        Translation is only recovered up to scale. Use with unit baseline.
+        Monocular VO can only recover translation direction, not magnitude.
+        The returned t is unit-normalized and must be scaled externally
+        (e.g., via TrajectoryAccumulator's scale factor).
     """
     # Check minimum matches (need at least 8 for 5-point algorithm + RANSAC)
     if len(points0) < 8 or len(points1) < 8:
@@ -99,25 +105,25 @@ def detect_pure_rotation(
     ransac_thresh: float = 3.0,
     ratio_threshold: float = 0.6,
 ) -> bool:
-    """Detect if camera motion is predominantly pure rotation.
+    """Detect whether the camera motion between two frames is predominantly pure rotation.
 
-    Uses Homography vs Essential matrix inlier comparison:
-    - Estimate both H and E via RANSAC
-    - If H inliers >> E inliers (ratio > threshold), return True
-    - If both succeed with similar inlier counts, return False
-    - If E has more inliers, definitely not pure rotation, return False
-
-    Note: In pure rotation, the fundamental matrix F degenerates —
-    Homography H correctly describes the entire motion.
+    Pure rotation causes the Essential matrix to degenerate. This function
+    compares Homography inlier count against Essential matrix inlier count.
+    When the Homography explains substantially more matches than the
+    Essential matrix (ratio above threshold), the motion is classified as
+    pure rotation.
 
     Args:
-        points0, points1: Matched pixel coordinate pairs
-        K: Camera intrinsic matrix
-        ransac_thresh: Pixel threshold for RANSAC inlier detection
-        ratio_threshold: H-inlier / E-inlier ratio above which pure rotation is declared
+        points0: Matched keypoints in the first frame, shape (N, 2), pixel coords.
+        points1: Matched keypoints in the second frame, same shape.
+        K: 3x3 camera intrinsic matrix.
+        ransac_thresh: Pixel threshold for RANSAC inlier detection. Default 3.0.
+        ratio_threshold: The Homography-to-Essential inlier count ratio above
+            which pure rotation is declared. Default 0.6.
 
     Returns:
-        True if motion is predominantly pure rotation
+        True if the motion is predominantly rotation with negligible translation.
+        False otherwise.
     """
     if len(points0) < 8 or len(points1) < 8:
         return False
@@ -152,15 +158,29 @@ def estimate_essential_or_homography(
     ransac_thresh: float = 1.0,
     conf: float = 0.999,
 ) -> tuple | None:
-    """Estimate pose with pure-rotation fallback.
+    """Estimate relative pose with a pure-rotation fallback.
 
-    Algorithm:
-        1. Try normal estimate_essential()
-        2. If None (E failed), try detect_pure_rotation()
-        3. If pure rotation: decompose H to get R-only, set t=0
-        4. Return (R, t=zeros, inlier_mask) or None
+    Tries standard Essential matrix estimation first. If that fails (e.g.,
+    in a pure-rotation scenario where the Essential matrix degenerates),
+    falls back to Homography decomposition to recover the rotation alone.
 
-    Returns same format as estimate_essential(): (R, t, inlier_mask) or None
+    Steps:
+        1. Call ``estimate_essential``. If it succeeds, return its result.
+        2. Call ``detect_pure_rotation``. If it returns False, return None.
+        3. Estimate the Homography and decompose it as ``R = K^{-1} H K``.
+           The translation is set to zero since there is no translational
+           component in pure rotation.
+
+    Args:
+        points0: Matched keypoints in the first frame, shape (N, 2), pixel coords.
+        points1: Matched keypoints in the second frame, same shape.
+        K: 3x3 camera intrinsic matrix.
+        ransac_thresh: RANSAC inlier threshold in pixels. Default 1.0.
+        conf: RANSAC confidence level. Default 0.999.
+
+    Returns:
+        Tuple (R, t, inlier_mask) with t = zeros(3) in the pure-rotation case.
+        Returns None if neither method produces a valid pose.
     """
     result = estimate_essential(
         points0, points1, K,

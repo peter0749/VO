@@ -1283,7 +1283,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
 ### Wave 6: Evaluation + Robustness (After Wave 5)
 
-- [ ] 15. Umeyama Alignment + APE/RTE Evaluation
+- [x] 15. Umeyama Alignment + APE/RTE Evaluation
 
   **What to do**:
   - 建立 `slam_dnn/eval.py`：
@@ -1361,7 +1361,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
   **Commit**: NO (groups with Wave 6)
 
-- [ ] 16. Edge Case Handling (Pure Rotation, Tracking Lost)
+- [x] 16. Edge Case Handling (Pure Rotation, Tracking Lost)
 
   **What to do**:
   - 新增 edge case handling 到 `slam_dnn/pose.py`：
@@ -1458,7 +1458,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
   **Commit**: NO (groups with Wave 6)
 
-- [ ] 17. Comprehensive Unit Tests (Teaching Examples)
+- [x] 17. Comprehensive Unit Tests (Teaching Examples)
 
   **What to do**:
   - 擴充所有 `tests/test_*.py`，確保每個 module 有 3+ teaching-quality tests：
@@ -1536,7 +1536,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
 
 ### Wave 7: Polish (After Wave 6)
 
-- [ ] 18. CLI Entry Point + Logging
+- [x] 18. CLI Entry Point + Logging
 
   **What to do**:
   - 建立 `slam_dnn/__main__.py` — 讓 `python -m slam_dnn` 可用：
@@ -1639,7 +1639,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews):
   - Message: `feat: CLI entry point with logging and evaluation support`
   - Files: `slam_dnn/__main__.py`, `slam_dnn/cli.py`, `run_vo.py` (deleted), `tests/test_cli.py`
 
-- [ ] 19. README + Docstrings + Usage Examples
+- [x] 19. README + Docstrings + Usage Examples
 
   **What to do**:
   - 撰寫 `README.md`：

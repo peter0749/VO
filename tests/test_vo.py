@@ -133,3 +133,51 @@ class TestVisualOdometryInterface:
         vo2 = VisualOdometry(camera, matcher="classic", device="cpu")
         assert isinstance(vo1.matcher, MatcherBase)
         assert isinstance(vo2.matcher, MatcherBase)
+
+
+class TestVisualOdometryEdgeCases:
+    """Additional edge cases teaching VO pipeline robustness."""
+
+    def test_vo_config_object_overrides_params(self, camera):
+        """VOConfig overrides constructor string arguments when provided.
+
+        Teaches: the VOConfig dataclass is the canonical way to configure
+        the pipeline. When passed, it takes precedence over individual kwargs
+        like max_keypoints and scale.
+        """
+        from slam_dnn import VOConfig
+
+        cfg = VOConfig(max_keypoints=256, scale=2.0, min_matches=10, device="cpu")
+        vo = VisualOdometry(camera, matcher="classic", config=cfg)
+        assert vo.get_stats()["total"] == 0
+        assert vo.min_matches == 10
+        assert isinstance(vo.matcher, ClassicMatcher)
+
+    def test_vo_get_trajectory_returns_accumulator(self, camera):
+        """get_trajectory() returns a TrajectoryAccumulator with initial identity.
+
+        Teaches: even before processing any frames, the trajectory starts
+        with one identity pose (the camera's starting position).
+        """
+        from slam_dnn import TrajectoryAccumulator
+
+        vo = VisualOdometry(camera, device="cpu")
+        traj = vo.get_trajectory()
+        assert isinstance(traj, TrajectoryAccumulator)
+        assert len(traj) == 1
+
+    def test_vo_reset_and_process_again(self, camera):
+        """After reset(), VO state is clean enough to process a fresh sequence.
+
+        Teaches: reset() doesn't just clear counters — it fully reinitializes
+        the internal feature cache and trajectory, so the next frame is
+        treated as a new "first frame" (returning None).
+        """
+        vo = VisualOdometry(camera, device="cpu", max_keypoints=50)
+        img = np.random.randint(0, 255, (480, 640), dtype=np.uint8)
+        vo.process_frame(img)
+        vo.reset()
+
+        pose = vo.process_frame(img)
+        assert pose is None, "After reset, first frame should return None"
+        assert vo.get_stats()["total"] == 1

@@ -165,3 +165,46 @@ def test_trajectory_accumulator_save(tmp_path):
     # Invalid format
     with pytest.raises(ValueError, match="Unknown format"):
         traj.save(str(tmp_path / "bad.txt"), format="invalid")
+
+
+def test_export_large_trajectory_100_poses(tmp_path):
+    """Round-trip of 100 poses verifies export scales linearly (no truncation).
+
+    Teaches: KITTI format writes one line per pose with 12 floats.
+    There's no size limit — 100+ poses work identically to 5 poses.
+    The file size grows linearly, making KITTI practical for trajectories
+    with thousands of frames.
+    """
+    poses = []
+    for i in range(100):
+        T = np.eye(4, dtype=np.float64)
+        angle = i * 0.01
+        R = np.array([
+            [np.cos(angle), -np.sin(angle), 0],
+            [np.sin(angle),  np.cos(angle), 0],
+            [0, 0, 1],
+        ])
+        T[:3, :3] = R
+        T[:3, 3] = [float(i), float(i * 0.5), 0.0]
+        poses.append(T)
+
+    kitti_path = tmp_path / "large_kitti.txt"
+    export_kitti_format(poses, str(kitti_path))
+    loaded = load_kitti_format(str(kitti_path))
+    assert len(loaded) == 100
+    for orig, rec in zip(poses, loaded):
+        np.testing.assert_allclose(orig, rec, atol=1e-5)
+
+
+def test_export_tum_default_timestamps_are_sequential(tmp_path):
+    """TUM export without explicit timestamps uses 0, 1, 2, ... automatically.
+
+    Teaches: callers don't need to construct a timestamp list for
+    frame-indexed output — the default behavior is already sequential.
+    """
+    poses = [np.eye(4, dtype=np.float64) for _ in range(5)]
+    filepath = tmp_path / "tum_default.txt"
+    export_tum_format(poses, str(filepath))
+    loaded_poses, loaded_ts = load_tum_format(str(filepath))
+    assert len(loaded_poses) == 5
+    np.testing.assert_allclose(loaded_ts, [0.0, 1.0, 2.0, 3.0, 4.0], atol=1e-6)

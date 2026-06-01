@@ -106,3 +106,57 @@ class TestInputVariants:
         """Number of keypoints does not exceed max_keypoints."""
         result = extractor.extract(random_grayscale)
         assert result["keypoints"].shape[0] <= 100
+
+
+class TestSuperPointEdgeCases:
+    """Additional edge-case tests teaching graceful degradation."""
+
+    def test_extractor_accepts_bgr_image(self, extractor):
+        """Extractor handles (H, W, 3) BGR uint8 input without error.
+
+        Real-world frames from OpenCV's cv2.imread() arrive as BGR.
+        SuperPoint internally converts, so both RGB and BGR should work
+        (color order doesn't affect keypoint detection quality).
+        """
+        bgr_img = np.random.randint(0, 255, (240, 320, 3), dtype=np.uint8)
+        result = extractor.extract(bgr_img)
+        assert isinstance(result, dict)
+        assert "keypoints" in result
+        assert "descriptors" in result
+        assert "scores" in result
+
+    def test_extractor_returns_zero_keypoints_on_blank_image(self, extractor):
+        """A uniform-zero (all-black) image has no features → 0 keypoints.
+
+        Teaches: SuperPoint returns an empty dict gracefully rather than
+        crashing. Downstream code must handle the 0-keypoints case.
+        """
+        blank = np.zeros((240, 320), dtype=np.uint8)
+        result = extractor.extract(blank)
+        assert result["keypoints"].shape[0] == 0
+        assert result["descriptors"].shape == (0, 256)
+        assert result["scores"].shape == (0,)
+
+    def test_extractor_invalid_4d_image_raises(self, extractor):
+        """A 4D array (e.g. a batch of images) is not a valid single image.
+
+        Teaches: extract() expects a single image (ndim=2 or 3), not a batch.
+        Users must loop over frames rather than passing a 4D stack.
+        """
+        batch = np.random.randint(0, 255, (2, 3, 240, 320), dtype=np.uint8)
+        with pytest.raises(ValueError, match="2D or 3D"):
+            extractor.extract(batch)
+
+    def test_keypoints_within_image_bounds(self, extractor, random_grayscale):
+        """All returned (x, y) keypoints fall inside [0, W) × [0, H).
+
+        Off-by-one bugs could place a keypoint at exactly W or H. The
+        matcher downstream uses pixel lookups, so out-of-bounds kpts crash.
+        """
+        h, w = random_grayscale.shape
+        result = extractor.extract(random_grayscale)
+        if result["keypoints"].shape[0] == 0:
+            pytest.skip("No keypoints detected")
+        kpts = result["keypoints"]
+        assert np.all(kpts[:, 0] >= 0) and np.all(kpts[:, 0] < w)
+        assert np.all(kpts[:, 1] >= 0) and np.all(kpts[:, 1] < h)

@@ -8,7 +8,7 @@
       "plan_name": "superpoint-visual-odometry",
       "status": "active",
       "started_at": "2026-06-01T16:16:23.144Z",
-      "updated_at": "2026-06-01T18:16:11.574Z",
+      "updated_at": "2026-06-01T18:49:44.262Z",
       "session_ids": [
         "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb",
         "opencode:ses_17bf98871ffe8OYtcUeVor1yEa",
@@ -24,7 +24,10 @@
         "opencode:ses_17baa132affe5GLRQSO8uptRfR",
         "opencode:ses_17ba9c84effeXpOK2d0cYQtjDX",
         "opencode:ses_17b99e735ffeEvzP996VT32r1K",
-        "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv"
+        "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv",
+        "opencode:ses_17b8d53a0ffeKMwYma5s5nzxh7",
+        "opencode:ses_17b8ce93affeL9FIl6xX31F2A2",
+        "opencode:ses_17b8c760effexpnNHHG7ba1vSl"
       ],
       "session_origins": {
         "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct",
@@ -41,7 +44,10 @@
         "opencode:ses_17baa132affe5GLRQSO8uptRfR": "appended",
         "opencode:ses_17ba9c84effeXpOK2d0cYQtjDX": "appended",
         "opencode:ses_17b99e735ffeEvzP996VT32r1K": "appended",
-        "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv": "appended"
+        "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv": "appended",
+        "opencode:ses_17b8d53a0ffeKMwYma5s5nzxh7": "appended",
+        "opencode:ses_17b8ce93affeL9FIl6xX31F2A2": "appended",
+        "opencode:ses_17b8c760effexpnNHHG7ba1vSl": "appended"
       },
       "agent": "atlas",
       "task_sessions": {
@@ -152,7 +158,20 @@
           "session_id": "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv",
           "agent": "Sisyphus-Junior",
           "category": "unspecified-high",
-          "updated_at": "2026-06-01T18:16:11.574Z"
+          "updated_at": "2026-06-01T18:29:02.092Z",
+          "ended_at": "2026-06-01T18:29:02.092Z",
+          "status": "completed"
+        },
+        "todo:17": {
+          "task_key": "todo:17",
+          "task_label": "17",
+          "task_title": "Comprehensive Unit Tests (Teaching Examples)",
+          "session_id": "opencode:ses_17b8c760effexpnNHHG7ba1vSl",
+          "agent": "Sisyphus-Junior",
+          "category": "writing",
+          "updated_at": "2026-06-01T18:49:44.262Z",
+          "ended_at": "2026-06-01T18:49:44.262Z",
+          "status": "completed"
         }
       }
     }
@@ -160,7 +179,7 @@
   "active_plan": "/Users/kuang-yujeng/SLAM-DNN/.omo/plans/superpoint-visual-odometry.md",
   "started_at": "2026-06-01T16:16:23.144Z",
   "status": "active",
-  "updated_at": "2026-06-01T18:16:11.574Z",
+  "updated_at": "2026-06-01T18:49:44.262Z",
   "session_ids": [
     "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb",
     "opencode:ses_17bf98871ffe8OYtcUeVor1yEa",
@@ -176,7 +195,10 @@
     "opencode:ses_17baa132affe5GLRQSO8uptRfR",
     "opencode:ses_17ba9c84effeXpOK2d0cYQtjDX",
     "opencode:ses_17b99e735ffeEvzP996VT32r1K",
-    "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv"
+    "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv",
+    "opencode:ses_17b8d53a0ffeKMwYma5s5nzxh7",
+    "opencode:ses_17b8ce93affeL9FIl6xX31F2A2",
+    "opencode:ses_17b8c760effexpnNHHG7ba1vSl"
   ],
   "session_origins": {
     "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct",
@@ -193,7 +215,10 @@
     "opencode:ses_17baa132affe5GLRQSO8uptRfR": "appended",
     "opencode:ses_17ba9c84effeXpOK2d0cYQtjDX": "appended",
     "opencode:ses_17b99e735ffeEvzP996VT32r1K": "appended",
-    "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv": "appended"
+    "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv": "appended",
+    "opencode:ses_17b8d53a0ffeKMwYma5s5nzxh7": "appended",
+    "opencode:ses_17b8ce93affeL9FIl6xX31F2A2": "appended",
+    "opencode:ses_17b8c760effexpnNHHG7ba1vSl": "appended"
   },
   "plan_name": "superpoint-visual-odometry",
   "task_sessions": {
@@ -304,7 +329,20 @@
       "session_id": "opencode:ses_17b997c54ffe4j5UZ1ggTHkLQv",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-06-01T18:16:11.574Z"
+      "updated_at": "2026-06-01T18:29:02.092Z",
+      "ended_at": "2026-06-01T18:29:02.092Z",
+      "status": "completed"
+    },
+    "todo:17": {
+      "task_key": "todo:17",
+      "task_label": "17",
+      "task_title": "Comprehensive Unit Tests (Teaching Examples)",
+      "session_id": "opencode:ses_17b8c760effexpnNHHG7ba1vSl",
+      "agent": "Sisyphus-Junior",
+      "category": "writing",
+      "updated_at": "2026-06-01T18:49:44.262Z",
+      "ended_at": "2026-06-01T18:49:44.262Z",
+      "status": "completed"
     }
   },
   "agent": "atlas"

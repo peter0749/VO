@@ -277,3 +277,71 @@ class TestLightGlueMatcher:
         assert np.all(result["scores"] >= 0.0)
         assert np.all(result["scores"] <= 1.0)
         assert np.all(result["indices"] >= 0)
+
+
+class TestClassicMatcherEdgeCases:
+    """Edge cases teaching matcher robustness."""
+
+    def test_classic_matcher_on_identical_features(self):
+        """Self-matching (identical descriptors) should produce high scores.
+
+        When you match a feature set against itself, every descriptor is its
+        own perfect match. The ratio test should pass trivially because the
+        nearest neighbor distance is 0 while the second-nearest is > 0.
+        """
+        np.random.seed(55)
+        n = 40
+        kp = np.random.rand(n, 2).astype(np.float32) * 100
+        desc = np.random.rand(n, 256).astype(np.float32)
+        desc /= np.linalg.norm(desc, axis=1, keepdims=True)
+
+        feats = {"keypoints": kp, "descriptors": desc}
+        matcher = ClassicMatcher(ratio=0.75, method="bf")
+        result = matcher.match(feats, feats)
+
+        assert len(result["points0"]) >= n - 5, (
+            f"Self-match should find ~{n} matches, got {len(result['points0'])}"
+        )
+        if len(result["scores"]) > 0:
+            assert result["scores"].mean() > 0.8, (
+                "Self-match scores should be near 1.0"
+            )
+
+    def test_classic_empty_descriptors(self):
+        """0 descriptors on one side should return empty matches (no crash).
+
+        Teaches: the matcher must handle degenerate cases where SuperPoint
+        finds 0 features on a blank or uniform image.
+        """
+        feats_empty = {
+            "keypoints": np.zeros((0, 2), dtype=np.float32),
+            "descriptors": np.zeros((0, 256), dtype=np.float32),
+        }
+        feats_nonempty = {
+            "keypoints": np.random.rand(10, 2).astype(np.float32),
+            "descriptors": np.random.rand(10, 256).astype(np.float32),
+        }
+        matcher = ClassicMatcher(ratio=0.75, method="bf")
+        result = matcher.match(feats_empty, feats_nonempty)
+        assert len(result["points0"]) == 0
+        assert len(result["points1"]) == 0
+
+    def test_classic_minimum_two_descriptors(self):
+        """Minimum viable input is 2 descriptors per side (ratio test needs 2 neighbors).
+
+        Teaches: the Lowe ratio test compares the best match against the
+        second-best. With only 1 descriptor per side, there's no second
+        neighbor, causing the unpack to fail. Two descriptors is the
+        practical minimum.
+        """
+        kp0 = np.array([[10.0, 10.0], [20.0, 20.0]], dtype=np.float32)
+        kp1 = np.array([[12.0, 11.0], [22.0, 21.0]], dtype=np.float32)
+        desc0 = np.random.rand(2, 256).astype(np.float32)
+        desc1 = np.random.rand(2, 256).astype(np.float32)
+        feats0 = {"keypoints": kp0, "descriptors": desc0}
+        feats1 = {"keypoints": kp1, "descriptors": desc1}
+
+        matcher = ClassicMatcher(ratio=0.75, method="bf")
+        result = matcher.match(feats0, feats1)
+        assert len(result["points0"]) <= 2
+        assert set(result.keys()) == {"points0", "points1", "scores", "indices"}

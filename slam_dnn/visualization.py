@@ -85,25 +85,23 @@ def plot_trajectory_comparison(
     save_path: str | None = None,
     show: bool = False,
 ) -> Figure:
-    """Plot estimated vs ground truth trajectory in 2D top-down view.
+    """Plot estimated versus ground truth trajectory in a 2D top-down view.
+
+    Renders both trajectories on axes with equal aspect ratio for true
+    spatial accuracy. Start and end markers are added to the estimated
+    trajectory; ground truth is shown in dashed gray.
 
     Args:
-        estimated: (N, 3) positions or (N, 4, 4) SE3 poses (or list of 4x4).
-        ground_truth: Optional (M, 3) or (M, 4, 4) ground truth poses.
-        title: Plot title.
-        save_path: If provided, save PNG to this path.
-        show: If True, display plot interactively.
+        estimated: Estimated trajectory as (N, 3) positions, (N, 4, 4) SE(3)
+            matrices, or a list of 4x4 matrices.
+        ground_truth: Optional ground truth in the same format.
+        title: Plot title. Defaults to "Camera Trajectory".
+        save_path: If provided, save the figure as a PNG to this path.
+            Example: save_path="results/trajectory.png".
+        show: If True, display the plot interactively via plt.show().
 
     Returns:
         matplotlib Figure object.
-
-    Visual elements:
-        - Estimated trajectory in blue with start (green circle) and end
-          (red triangle) markers.
-        - Ground truth in dashed gray (if provided).
-        - Equal aspect ratio for true scale.
-        - Grid overlay for reference.
-        - Legend indicating series.
     """
     est_pos = _poses_to_positions(estimated)
     gt_pos = _poses_to_positions(ground_truth) if ground_truth is not None else None
@@ -164,21 +162,19 @@ def plot_trajectory_3d(
     save_path: str | None = None,
     show: bool = False,
 ) -> Figure:
-    """Plot trajectory in 3D using matplotlib's 3D projection.
+    """Plot a trajectory in 3D space using matplotlib's 3D projection.
+
+    The trajectory line is colored by frame number using a viridis gradient,
+    making it easy to track temporal progression along the path.
 
     Args:
-        poses: List of 4x4 SE3 matrices or (N, 3) positions.
-        title: Plot title.
-        save_path: If provided, save PNG to this path.
-        show: If True, display plot interactively.
+        poses: List of 4x4 SE(3) matrices or (N, 3) positions.
+        title: Plot title. Defaults to "3D Trajectory".
+        save_path: If provided, save the figure as a PNG to this path.
+        show: If True, display the plot interactively via plt.show().
 
     Returns:
         matplotlib Figure with 3D axes.
-
-    Visual elements:
-        - 3D line plot with color gradient by frame number.
-        - Start (green) and end (red) markers.
-        - XYZ label axes.
     """
     positions = _poses_to_positions(poses)
 
@@ -241,24 +237,24 @@ def plot_matches(
     title: str = "Feature Matches",
     save_path: str | None = None,
 ) -> Figure:
-    """Visualize feature matches between two images.
+    """Visualize feature matches between two images side by side.
+
+    Each image is shown with its keypoints overlaid, and lines connect
+    matching pairs across the two images. When match scores or distances
+    are available, the lines are colored by confidence.
 
     Args:
-        img0: (H, W) or (H, W, 3) first image.
-        img1: (H, W) or (H, W, 3) second image.
-        matches: dict with keys 'keypoints0' and 'keypoints1' (each (K, 2)).
-                 Optionally 'scores' or 'distances' for color gradient.
-        n_show: Number of matches to display.
-        title: Plot title.
-        save_path: If provided, save PNG to this path.
+        img0: First image, shape (H, W) or (H, W, 3).
+        img1: Second image, same format as img0.
+        matches: Dictionary with keys 'keypoints0' and 'keypoints1' (each
+            shape (K, 2) in pixel coordinates). Optionally includes
+            'scores' or 'distances' for color-coded lines.
+        n_show: Maximum number of match lines to draw. Default 50.
+        title: Plot title. Defaults to "Feature Matches".
+        save_path: If provided, save the figure as a PNG to this path.
 
     Returns:
         matplotlib Figure object.
-
-    Visual elements:
-        - Side-by-side image display.
-        - Lines connecting matched keypoints.
-        - Color gradient by match confidence/distance (better = brighter).
     """
     # Convert grayscale to RGB for consistent display
     if img0.ndim == 2:
@@ -349,21 +345,22 @@ def save_trajectory_video(
     output_path: str,
     fps: int = 10,
 ) -> None:
-    """Generate a video showing trajectory overlay on camera view.
+    """Generate an MP4 video showing the camera trajectory overlaid on each frame.
+
+    Each output frame has the camera image on the left and an up-to-date
+    top-down trajectory map on the right. The current position is highlighted
+    in red and the start position in green.
 
     Args:
-        poses: List of 4x4 SE3 matrices or (N, 3) positions.
-        images: List of camera images (same length as poses).
-        output_path: Path to save MP4 video.
-        fps: Frames per second.
+        poses: List of 4x4 SE(3) matrices or (N, 3) positions.
+        images: List of camera images, one per pose (same length as poses).
+        output_path: Path for the output MP4 file.
+        fps: Frames per second in the output video. Default 10.
 
     Raises:
-        RuntimeError: If opencv or imageio not available.
-
-    Visual elements:
-        - Each frame: camera image on left, top-down trajectory on right.
-        - Current position highlighted in red.
-        - Frame counter overlay.
+        RuntimeError: If opencv-python is not available or the VideoWriter
+            cannot be opened.
+        ValueError: If no frames are provided (poses or images are empty).
     """
     try:
         import cv2

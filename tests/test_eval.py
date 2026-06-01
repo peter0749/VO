@@ -263,5 +263,63 @@ class TestEvaluate:
 
         assert result["num_frames"] == 20
         assert "ape_rmse" in result
-        # Truncated to identical poses → near-zero error
         assert result["ape_rmse"] < 1e-6
+
+
+class TestEvaluateEdgeCases:
+    """Additional evaluation edge cases."""
+
+    def test_evaluate_with_scale_only(self):
+        """evaluate() recovers pure scale difference (no rotation/translation offset).
+
+        Teaches: when est trajectory camera centers are exactly 2x the
+        ground truth centers, Umeyama alignment finds the scale that maps
+        est→gt, so scale ≈ 0.5 (shrinking est to match gt).
+        Uses a non-collinear trajectory (sinusoidal y-offset) for SVD stability.
+        """
+        n = 30
+        gt_poses = []
+        est_poses = []
+        for i in range(n):
+            T_gt = np.eye(4)
+            T_gt[0, 3] = i * 1.0
+            T_gt[1, 3] = np.sin(i * 0.3)
+            gt_poses.append(T_gt)
+
+            T_est = np.eye(4)
+            T_est[0, 3] = T_gt[0, 3] * 2.0
+            T_est[1, 3] = T_gt[1, 3] * 2.0
+            est_poses.append(T_est)
+
+        result = evaluate(est_poses, gt_poses, with_scale=True)
+        assert abs(result["scale"] - 0.5) < 0.1, f"Expected scale≈0.5, got {result['scale']}"
+        assert result["ape_rmse"] < 1.0, f"Aligned APE should be low, got {result['ape_rmse']}"
+
+    def test_evaluate_no_scale_recovers_identity(self):
+        """with_scale=False on identical trajectories gives scale=1, APE=0.
+
+        Teaches: with_scale=False disables Sim(3) scale recovery, forcing
+        SE(3)-only alignment. For identical poses this changes nothing.
+        """
+        poses = _straight_trajectory(n=20, step=1.0)
+        result = evaluate(poses, poses, with_scale=False)
+        assert result["scale"] == 1.0
+        assert result["ape_rmse"] < 1e-6
+        assert result["num_frames"] == 20
+
+    def test_rte_returns_zeros_for_insufficient_path_length(self):
+        """RTE assigns zero to frames where the accumulated path < 0.5*window.
+
+        Teaches: the first few frames of a short trajectory won't have enough
+        path length for the sliding window. These are marked RTE=0 and excluded
+        from the valid RTE statistics.
+        """
+        n = 10
+        gt_pos = np.zeros((n, 3))
+        gt_pos[:, 0] = np.arange(n) * 0.5
+        est_pos = gt_pos + np.array([0.1, 0.0, 0.0])
+
+        rte = compute_rte(est_pos, gt_pos, window=5.0)
+        assert rte.shape == (n,)
+        assert rte[0] == 0.0
+        assert rte[1] == 0.0

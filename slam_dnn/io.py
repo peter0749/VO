@@ -1,4 +1,4 @@
-"""slam_dnn/io — Frame loading from image directories and video files."""
+"""Frame loading from image directories and video files."""
 
 from __future__ import annotations
 
@@ -11,8 +11,32 @@ from typing import Iterator
 class FrameLoader:
     """Load frames from an image directory or video file.
 
-    Auto-detects mode: directory → image mode; file → video mode.
-    Raises FileNotFoundError for non-existent paths.
+    Automatically detects the input type. If the source is a directory, it
+    scans for image files with extensions in {.png, .jpg, .jpeg, .ppm, .bmp},
+    sorted alphabetically. If the source is a file, it opens it as a video
+    via OpenCV's VideoCapture.
+
+    FrameLoader is iterable and supports len(). Optional parameters cap the
+    total frames and allow resizing.
+
+    Args:
+        source: Path to an image directory or video file.
+        max_frames: If provided, stop after yielding this many frames.
+            Useful for debugging or processing a small subset.
+        resize: If provided as (W, H), each frame is resized to this shape
+            before yielding. None keeps the original resolution.
+
+    Raises:
+        FileNotFoundError: If source does not exist.
+        ValueError: If directory contains no image files, video file
+            cannot be opened, or source is neither a file nor directory.
+
+    Example:
+        >>> loader = FrameLoader('path/to/images/', max_frames=10)
+        >>> len(loader)
+        10
+        >>> for i, frame in enumerate(loader):
+        ...     print(f"Frame {i}: shape={frame.shape}")
     """
 
     _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".ppm", ".bmp"}
@@ -47,6 +71,7 @@ class FrameLoader:
             raise ValueError(f"Unknown source type: {source}")
 
     def __len__(self) -> int:
+        """Return the total number of frames available (capped by max_frames)."""
         if self._images is not None:
             n = len(self._images)
         else:
@@ -56,6 +81,13 @@ class FrameLoader:
         return n
 
     def __iter__(self) -> Iterator[np.ndarray]:
+        """Yield BGR frames as uint8 ndarrays, one at a time.
+
+        For image directories, each file is loaded and decoded via OpenCV.
+        For video files, the stream is read frame by frame. The video
+        stream is seeked to frame 0 at the start of iteration so that
+        the loader can be iterated multiple times.
+        """
         count = 0
         if self._images is not None:
             for img_path in self._images:
@@ -81,18 +113,35 @@ class FrameLoader:
                 count += 1
 
     def __del__(self):
+        """Release the video capture if one is open."""
         video = getattr(self, "_video", None)
         if video is not None:
             video.release()
 
 
 def to_grayscale(img: np.ndarray) -> np.ndarray:
-    """Convert BGR uint8 to grayscale uint8."""
+    """Convert a BGR color image to grayscale uint8.
+
+    If the input is already 2D (grayscale), it is returned unchanged.
+
+    Args:
+        img: uint8 ndarray of shape (H, W) or (H, W, 3) in BGR order.
+
+    Returns:
+        uint8 ndarray of shape (H, W).
+    """
     if img.ndim == 2:
         return img
     return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 
 def to_float(img: np.ndarray) -> np.ndarray:
-    """Convert uint8 to float32 in [0, 1]."""
+    """Convert a uint8 image to float32 in the range [0, 1].
+
+    Args:
+        img: uint8 ndarray (any shape).
+
+    Returns:
+        float32 ndarray with values normalized to [0, 1].
+    """
     return img.astype(np.float32) / 255.0
