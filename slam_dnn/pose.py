@@ -2,8 +2,6 @@
 import cv2
 import numpy as np
 
-from .exceptions import TrackingLostError
-
 
 def estimate_essential(
     points0: np.ndarray,

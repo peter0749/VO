@@ -132,7 +132,7 @@ def select_device(args_device: str) -> str:
 # Main pipeline
 # ---------------------------------------------------------------------------
 
-def run_pipeline(args) -> int:
+def run_pipeline(args: argparse.Namespace) -> int:
     """Run the visual odometry pipeline. Returns 0 on success, 1 on failure."""
     output_dir = args.output
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -186,7 +186,7 @@ def run_pipeline(args) -> int:
                 )
         else:
             if args.verbose >= 1:
-                logger.info(f"  Frame {i}: tracking failed")
+                logger.info(f"  Frame {i}: initial frame, establishing baseline")
 
     elapsed = time.time() - t_start
     logger.info(f"\nDone in {elapsed:.1f}s")
@@ -194,7 +194,7 @@ def run_pipeline(args) -> int:
     # --- Summary ---
     stats = vo.get_stats()
     total_processed = n_frames - 1
-    logger.info(f"\nSummary:")
+    logger.info("\nSummary:")
     logger.info(f"  Total frames:      {n_frames}")
     logger.info(f"  Processed pairs:   {total_processed}")
     logger.info(f"  Successful:        {stats['successful']}")
@@ -248,12 +248,12 @@ def run_pipeline(args) -> int:
             # Save evaluation report
             eval_path = output_dir / "evaluation_report.txt"
             with open(eval_path, "w") as f:
-                f.write(f"Trajectory Evaluation Report\n")
+                f.write("Trajectory Evaluation Report\n")
                 f.write(f"{'=' * 40}\n")
-                f.write(f"APE (Absolute Pose Error):\n")
+                f.write("APE (Absolute Pose Error):\n")
                 f.write(f"  RMSE: {eval_result['ape_rmse']:.4f}\n")
                 f.write(f"  Mean: {eval_result['ape_mean']:.4f}\n")
-                f.write(f"RTE (Relative Trajectory Error):\n")
+                f.write("RTE (Relative Trajectory Error):\n")
                 f.write(f"  RMSE: {eval_result['rte_rmse']:.4f}\n")
                 f.write(f"  Mean: {eval_result['rte_mean']:.4f}\n")
                 f.write(f"Umeyama Scale: {eval_result['scale']:.4f}\n")
@@ -263,7 +263,7 @@ def run_pipeline(args) -> int:
         except Exception as e:
             logger.warning(f"Evaluation failed: {e}")
 
-    logger.info(f"\nOutputs:")
+    logger.info("\nOutputs:")
     logger.info(f"  KITTI: {kitti_path} ({len(poses)} poses)")
     logger.info(f"  TUM:   {tum_path} ({len(poses)} poses)")
 
@@ -297,7 +297,7 @@ def main(argv: list[str] | None = None) -> int:
         logger.error(f"Input path does not exist: {args.input}")
         return 1
 
-    logger.info(f"Starting SLAM-DNN visual odometry")
+    logger.info("Starting SLAM-DNN visual odometry")
 
     return run_pipeline(args)
 

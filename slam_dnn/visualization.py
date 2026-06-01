@@ -157,11 +157,11 @@ def plot_trajectory_comparison(
 # ---------------------------------------------------------------------------
 
 def plot_trajectory_3d(
-    poses,
+    poses: list[np.ndarray],
     title: str = "3D Trajectory",
     save_path: str | None = None,
-    show: bool = False,
-) -> Figure:
+    show: bool = True,
+) -> Figure | None:
     """Plot a trajectory in 3D space using matplotlib's 3D projection.
 
     The trajectory line is colored by frame number using a viridis gradient,
@@ -340,8 +340,8 @@ def plot_matches(
 # ---------------------------------------------------------------------------
 
 def save_trajectory_video(
-    poses,
-    images: list,
+    poses: list[np.ndarray],
+    images: list[np.ndarray],
     output_path: str,
     fps: int = 10,
 ) -> None:

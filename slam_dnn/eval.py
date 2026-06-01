@@ -320,6 +320,7 @@ def evaluate(
         ``rte_mean``  – Mean RTE over valid entries (float)
         ``scale``     – Umeyama scale factor recovered (float)
         ``num_frames`` – Number of frames evaluated (int)
+        ``aligned_poses`` – List of aligned 4×4 poses (same length as input).
     """
     n = min(len(estimated), len(ground_truth))
     est = list(estimated[:n])
@@ -347,4 +348,5 @@ def evaluate(
         "rte_mean": rte_mean,
         "scale": float(scale),
         "num_frames": n,
+        "aligned_poses": aligned_poses,
     }

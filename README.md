@@ -80,6 +80,7 @@ Arguments:
 - `--scale`: Trajectory scale factor (default: 1.0)
 - `--device`: `auto`, `cuda`, `mps`, or `cpu` (default: auto)
 - `--no-plot`: Skip trajectory plot generation
+- `--ground-truth GT_PATH`: Path to ground truth trajectory for evaluation
 - `--verbose, -v`: Verbosity level. Repeat for more: `-vv` for DEBUG
 
 ### Output Files
@@ -156,8 +157,12 @@ gt_poses = load_kitti_format("ground_truth.txt")
 # Full evaluation report
 report = evaluate(est_poses, gt_poses, with_scale=True)
 print(f"APE RMSE: {report['ape_rmse']:.4f}")
+print(f"APE mean: {report['ape_mean']:.4f}")
 print(f"RTE RMSE: {report['rte_rmse']:.4f}")
+print(f"RTE mean: {report['rte_mean']:.4f}")
 print(f"Umeyama scale: {report['scale']:.4f}")
+print(f"Frames evaluated: {report['num_frames']}")
+# report['aligned_poses'] contains the scale-aligned estimated poses
 ```
 
 The `evaluate` function aligns the estimated trajectory to ground truth via
@@ -205,8 +210,8 @@ if result is not None:
 from slam_dnn import VOConfig, VisualOdometry, PinholeCamera
 
 config = VOConfig(
-    max_keypoints=2048,
-    detection_threshold=0.0005,
+    max_keypoints=1024,
+    conf_thresh=0.005,
     matcher='lightglue',
     fov_deg=63.0,
     min_matches=20,

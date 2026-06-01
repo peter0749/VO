@@ -8,7 +8,7 @@
       "plan_name": "superpoint-visual-odometry",
       "status": "completed",
       "started_at": "2026-06-01T16:16:23.144Z",
-      "updated_at": "2026-06-01T19:17:39.388Z",
+      "updated_at": "2026-06-01T23:27:51.972Z",
       "session_ids": [
         "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb",
         "opencode:ses_17bf98871ffe8OYtcUeVor1yEa",
@@ -29,7 +29,10 @@
         "opencode:ses_17b8ce93affeL9FIl6xX31F2A2",
         "opencode:ses_17b8c760effexpnNHHG7ba1vSl",
         "opencode:ses_17b787e70ffeqhAgWErA7PU3W4",
-        "opencode:ses_17b77240dfferwJtOPT9VxxqX0"
+        "opencode:ses_17b77240dfferwJtOPT9VxxqX0",
+        "opencode:ses_17a7caf7fffexsXCGPkXf9pddw",
+        "opencode:ses_17a7c76a4ffeYteDJvO36q1sdS",
+        "opencode:ses_17a7c23e3ffev3d0HH9lfFMIKH"
       ],
       "session_origins": {
         "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct",
@@ -51,7 +54,10 @@
         "opencode:ses_17b8ce93affeL9FIl6xX31F2A2": "appended",
         "opencode:ses_17b8c760effexpnNHHG7ba1vSl": "appended",
         "opencode:ses_17b787e70ffeqhAgWErA7PU3W4": "appended",
-        "opencode:ses_17b77240dfferwJtOPT9VxxqX0": "appended"
+        "opencode:ses_17b77240dfferwJtOPT9VxxqX0": "appended",
+        "opencode:ses_17a7caf7fffexsXCGPkXf9pddw": "appended",
+        "opencode:ses_17a7c76a4ffeYteDJvO36q1sdS": "appended",
+        "opencode:ses_17a7c23e3ffev3d0HH9lfFMIKH": "appended"
       },
       "agent": "atlas",
       "task_sessions": {
@@ -198,7 +204,7 @@
   "active_plan": "/Users/kuang-yujeng/SLAM-DNN/.omo/plans/superpoint-visual-odometry.md",
   "started_at": "2026-06-01T16:16:23.144Z",
   "status": "completed",
-  "updated_at": "2026-06-01T19:17:39.388Z",
+  "updated_at": "2026-06-01T23:27:51.972Z",
   "session_ids": [
     "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb",
     "opencode:ses_17bf98871ffe8OYtcUeVor1yEa",
@@ -219,7 +225,10 @@
     "opencode:ses_17b8ce93affeL9FIl6xX31F2A2",
     "opencode:ses_17b8c760effexpnNHHG7ba1vSl",
     "opencode:ses_17b787e70ffeqhAgWErA7PU3W4",
-    "opencode:ses_17b77240dfferwJtOPT9VxxqX0"
+    "opencode:ses_17b77240dfferwJtOPT9VxxqX0",
+    "opencode:ses_17a7caf7fffexsXCGPkXf9pddw",
+    "opencode:ses_17a7c76a4ffeYteDJvO36q1sdS",
+    "opencode:ses_17a7c23e3ffev3d0HH9lfFMIKH"
   ],
   "session_origins": {
     "opencode:ses_17c2c0bcdffeLh2ZZHZu90owNb": "direct",
@@ -241,7 +250,10 @@
     "opencode:ses_17b8ce93affeL9FIl6xX31F2A2": "appended",
     "opencode:ses_17b8c760effexpnNHHG7ba1vSl": "appended",
     "opencode:ses_17b787e70ffeqhAgWErA7PU3W4": "appended",
-    "opencode:ses_17b77240dfferwJtOPT9VxxqX0": "appended"
+    "opencode:ses_17b77240dfferwJtOPT9VxxqX0": "appended",
+    "opencode:ses_17a7caf7fffexsXCGPkXf9pddw": "appended",
+    "opencode:ses_17a7c76a4ffeYteDJvO36q1sdS": "appended",
+    "opencode:ses_17a7c23e3ffev3d0HH9lfFMIKH": "appended"
   },
   "plan_name": "superpoint-visual-odometry",
   "task_sessions": {

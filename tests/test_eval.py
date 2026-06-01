@@ -207,7 +207,7 @@ class TestEvaluate:
         poses = _straight_trajectory(n=30, step=1.0)
         result = evaluate(poses, poses, with_scale=True)
 
-        required_keys = {"ape_rmse", "ape_mean", "rte_rmse", "rte_mean", "scale", "num_frames"}
+        required_keys = {"ape_rmse", "ape_mean", "rte_rmse", "rte_mean", "scale", "num_frames", "aligned_poses"}
         assert required_keys == set(result.keys()), f"keys={set(result.keys())}"
 
         assert result["num_frames"] == 30
