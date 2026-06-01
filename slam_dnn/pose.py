@@ -90,3 +90,108 @@ def estimate_essential(
         inlier_mask = np.ones(len(points0), dtype=bool)
 
     return R, t, inlier_mask
+
+
+def detect_pure_rotation(
+    points0: np.ndarray,
+    points1: np.ndarray,
+    K: np.ndarray,
+    ransac_thresh: float = 3.0,
+    ratio_threshold: float = 0.6,
+) -> bool:
+    """Detect if camera motion is predominantly pure rotation.
+
+    Uses Homography vs Essential matrix inlier comparison:
+    - Estimate both H and E via RANSAC
+    - If H inliers >> E inliers (ratio > threshold), return True
+    - If both succeed with similar inlier counts, return False
+    - If E has more inliers, definitely not pure rotation, return False
+
+    Note: In pure rotation, the fundamental matrix F degenerates —
+    Homography H correctly describes the entire motion.
+
+    Args:
+        points0, points1: Matched pixel coordinate pairs
+        K: Camera intrinsic matrix
+        ransac_thresh: Pixel threshold for RANSAC inlier detection
+        ratio_threshold: H-inlier / E-inlier ratio above which pure rotation is declared
+
+    Returns:
+        True if motion is predominantly pure rotation
+    """
+    if len(points0) < 8 or len(points1) < 8:
+        return False
+
+    H, mask_h = cv2.findHomography(
+        points0, points1, cv2.RANSAC, ransac_thresh
+    )
+    if H is None or mask_h is None:
+        return False
+    n_h = int(mask_h.sum())
+
+    result = estimate_essential(
+        points0, points1, K,
+        ransac_thresh=ransac_thresh,
+    )
+    if result is None:
+        return True
+    _, _, mask_e = result
+    n_e = int(mask_e.sum())
+
+    if n_e == 0:
+        return n_h > 0
+
+    ratio = n_h / n_e
+    return ratio > ratio_threshold
+
+
+def estimate_essential_or_homography(
+    points0: np.ndarray,
+    points1: np.ndarray,
+    K: np.ndarray,
+    ransac_thresh: float = 1.0,
+    conf: float = 0.999,
+) -> tuple | None:
+    """Estimate pose with pure-rotation fallback.
+
+    Algorithm:
+        1. Try normal estimate_essential()
+        2. If None (E failed), try detect_pure_rotation()
+        3. If pure rotation: decompose H to get R-only, set t=0
+        4. Return (R, t=zeros, inlier_mask) or None
+
+    Returns same format as estimate_essential(): (R, t, inlier_mask) or None
+    """
+    result = estimate_essential(
+        points0, points1, K,
+        ransac_thresh=ransac_thresh,
+        conf=conf,
+    )
+    if result is not None:
+        return result
+
+    if not detect_pure_rotation(points0, points1, K, ransac_thresh=ransac_thresh):
+        return None
+
+    H, mask = cv2.findHomography(
+        points0, points1, cv2.RANSAC, ransac_thresh
+    )
+    if H is None:
+        return None
+
+    # H = K @ R @ K^-1 for pure rotation (no translation)
+    # R = K^-1 @ H @ K
+    K_inv = np.linalg.inv(K)
+    R_unnormalized = K_inv @ H @ K
+
+    # Orthogonalize R (polar decomposition via SVD)
+    U, _, Vt = np.linalg.svd(R_unnormalized)
+    R = U @ Vt
+
+    # Ensure proper rotation (det = +1)
+    if np.linalg.det(R) < 0:
+        R = -R
+
+    t = np.zeros(3)
+    inlier_mask = mask.ravel().astype(bool)
+    return R, t, inlier_mask

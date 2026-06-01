@@ -4,9 +4,10 @@ import logging
 from typing import Iterator
 
 from .camera import PinholeCamera
+from .config import VOConfig
 from .features import SuperPointExtractor
 from .matching import MatcherBase, create_matcher
-from .pose import estimate_essential
+from .pose import estimate_essential, estimate_essential_or_homography
 from .trajectory import TrajectoryAccumulator
 
 
@@ -32,6 +33,7 @@ class VisualOdometry:
         scale: float = 1.0,
         device: str = "auto",
         min_matches: int = 20,
+        config: VOConfig | None = None,
     ):
         """
         Args:
@@ -41,9 +43,19 @@ class VisualOdometry:
             scale: Trajectory scale factor.
             device: "auto" | "cuda" | "mps" | "cpu".
             min_matches: Minimum matches required for pose estimation.
+            config: Optional VOConfig; overrides other kwargs when provided.
         """
+        if config is not None:
+            max_keypoints = config.max_keypoints
+            scale = config.scale
+            device = config.device
+            min_matches = config.min_matches
+            if isinstance(matcher, str) and matcher == "lightglue":
+                matcher = config.matcher
+
         self.camera = camera
         self.min_matches = min_matches
+        self._handle_pure_rotation = config.handle_pure_rotation if config else True
 
         self.extractor = SuperPointExtractor(max_keypoints=max_keypoints, device=device)
 
@@ -55,6 +67,7 @@ class VisualOdometry:
         self.trajectory = TrajectoryAccumulator(scale=scale)
         self._prev_feats = None
         self._frame_idx = 0
+        self._per_frame_stats: list[dict] = []
         self._stats = {
             "total": 0,
             "successful": 0,
@@ -73,6 +86,13 @@ class VisualOdometry:
         if self._prev_feats is None:
             self._prev_feats = feats
             self._frame_idx += 1
+            self._per_frame_stats.append({
+                "frame_idx": self._frame_idx - 1,
+                "num_matches": 0,
+                "num_inliers": 0,
+                "tracking_lost": False,
+                "pose_failed": False,
+            })
             return None
 
         match_result = self.matcher.match(
@@ -86,11 +106,19 @@ class VisualOdometry:
                 f"Frame {self._frame_idx}: tracking lost "
                 f"({n_matches} < {self.min_matches})"
             )
+            self._per_frame_stats.append({
+                "frame_idx": self._frame_idx,
+                "num_matches": n_matches,
+                "num_inliers": 0,
+                "tracking_lost": True,
+                "pose_failed": False,
+            })
             self._prev_feats = feats
             self._frame_idx += 1
             return None
 
-        result = estimate_essential(
+        pose_fn = estimate_essential_or_homography if self._handle_pure_rotation else estimate_essential
+        result = pose_fn(
             match_result["points0"],
             match_result["points1"],
             self.camera.K,
@@ -99,6 +127,13 @@ class VisualOdometry:
         if result is None:
             self._stats["pose_failed"] += 1
             logger.warning(f"Frame {self._frame_idx}: pose estimation failed")
+            self._per_frame_stats.append({
+                "frame_idx": self._frame_idx,
+                "num_matches": n_matches,
+                "num_inliers": 0,
+                "tracking_lost": False,
+                "pose_failed": True,
+            })
             self._prev_feats = feats
             self._frame_idx += 1
             return None
@@ -108,6 +143,13 @@ class VisualOdometry:
         self._prev_feats = feats
         self._frame_idx += 1
         self._stats["successful"] += 1
+        self._per_frame_stats.append({
+            "frame_idx": self._frame_idx - 1,
+            "num_matches": n_matches,
+            "num_inliers": int(inlier_mask.sum()),
+            "tracking_lost": False,
+            "pose_failed": False,
+        })
 
         pose_3x4 = np.hstack([R, t.reshape(3, 1)])
         return pose_3x4
@@ -131,11 +173,16 @@ class VisualOdometry:
         """Return statistics dict."""
         return self._stats.copy()
 
+    def get_per_frame_stats(self) -> list[dict]:
+        """Return copy of per-frame statistics list."""
+        return [s.copy() for s in self._per_frame_stats]
+
     def reset(self) -> None:
         """Reset internal state (trajectory + frame counter)."""
         self.trajectory.reset()
         self._prev_feats = None
         self._frame_idx = 0
+        self._per_frame_stats = []
         self._stats = {
             "total": 0,
             "successful": 0,

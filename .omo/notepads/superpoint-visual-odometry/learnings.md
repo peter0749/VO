@@ -51,3 +51,51 @@
 - **T12**: MatcherBase ABC + VisualOdometry facade + fix descriptor bug (dispatched, in progress)
 - **T13**: FrameLoader (image dirs + videos) — depends on T12
 - **T14**: KITTI + TUM dual export on TrajectoryAccumulator — depends on T12
+
+## Session Continuation — Wave 5 Lessons (commit 72b9745)
+
+### Parallel Subagent Conflict: __init__.py race
+- T13 (FrameLoader) and T14 (export.py) both tried to modify `slam_dnn/__init__.py`
+- T13's write happened AFTER T14's → T14's 4 export imports were LOST
+- Result: `ImportError: cannot import name 'export_kitti_format' from 'slam_dnn'`
+- Fix: orchestrator had to manually merge the missing imports after verification
+
+**TAKEAWAY for future waves**: When multiple subagents need to modify a shared file like `__init__.py`:
+- Either instruct them to SKIP that file and have orchestrator do a final merge pass
+- Or explicitly mark one task as owning the shared file (others append to a notepad list)
+
+### Current Public API (after Wave 5, 13 exports in __init__.py)
+```python
+K_from_fov, PinholeCamera, TrackingLostError,
+SuperPointExtractor, ClassicMatcher, LightGlueMatcher, MatcherBase, create_matcher,
+estimate_essential, TrajectoryAccumulator, VisualOdometry,
+FrameLoader, to_grayscale, to_float,
+export_kitti_format, export_tum_format, load_kitti_format, load_tum_format,
+visualization (submodule)
+```
+
+### Test Count After Wave 5
+- Total core unit tests (excluding slow synthetic): ~98
+- Core test suite runtime: ~12s (fast)
+- Full suite (including synthetic): ~90s
+
+### Upcoming Wave 6 Tasks
+- **T15**: Umeyama alignment + APE/RTE evaluation in slam_dnn/eval.py
+- **T16**: Edge case handling — pure rotation (homography fallback), tracking lost recovery
+- **T17**: Comprehensive test polish + conftest fixtures
+
+### File Layout After Wave 5
+```
+slam_dnn/
+├── __init__.py (18 exports)
+├── camera.py
+├── exceptions.py
+├── export.py (NEW - T14)
+├── features.py
+├── io.py (NEW - T13)
+├── matching.py (MatcherBase added - T12)
+├── pose.py
+├── trajectory.py (.save() method added - T14)
+├── visualization.py
+└── vo.py (NEW - T12)
+```
