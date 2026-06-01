@@ -114,3 +114,28 @@ def sample_3d_points():
     pts[:, 1] = rng.uniform(-3.0, 3.0, 50)
     pts[:, 2] = rng.uniform(3.0, 15.0, 50)
     return pts
+
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--skip-baseline",
+        action="store_true",
+        default=False,
+        help="Skip tests that require baseline submodules (e.g. minislam).",
+    )
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "baseline: test requires a baseline submodule (e.g. minislam)",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--skip-baseline"):
+        skip_marker = pytest.mark.skip(reason="--skip-baseline flag set")
+        for item in items:
+            if "baseline" in item.keywords:
+                item.add_marker(skip_marker)
