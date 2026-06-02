@@ -1,0 +1,10 @@
+# Dataset directories (downloaded data)
+kitti05/
+parking/
+
+# Synthetic data outputs (but keep generator scripts)
+synthetic/*
+!synthetic/*.py
+
+# Downloaded archives
+*.zip

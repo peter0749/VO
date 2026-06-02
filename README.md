@@ -272,6 +272,51 @@ pytest tests/ --ignore=tests/test_synthetic_vo.py
 The test suite covers unit tests for every module, integration tests for the full
 VO pipeline, and edge-case handling for tracking loss and pure rotation.
 
+## Datasets (Phase 3)
+
+Download ETH RPG lightweight dataset subsets for VO evaluation:
+
+```bash
+# Download KITTI sequence 05 (2761 frames, ~1.4 GB)
+python scripts/download_data.py --dataset kitti05 --output-dir data/
+
+# Download Parking dataset (~208 MB)
+python scripts/download_data.py --dataset parking --output-dir data/
+
+# Download all datasets
+python scripts/download_data.py --dataset all --output-dir data/
+
+# Verify SHA256 checksums after download
+python scripts/download_data.py --dataset kitti05 --output-dir data/ --verify
+```
+
+### Dataset Structure
+
+After download, datasets are extracted to:
+
+```
+data/kitti05/
+  image_0/       2761 PNG files (000000.png - 002760.png)
+  calib.txt      Camera intrinsics (P0, P1 projection matrices)
+  poses.txt      Ground truth trajectory (2761 lines, 12 floats per line)
+  times.txt      Timestamps (2761 lines)
+
+data/parking/
+  images/        Image sequence
+  calib.txt      Camera intrinsics
+  poses.txt      Ground truth trajectory
+```
+
+### Running VO on Downloaded Datasets
+
+```bash
+python -m slam_dnn \
+    --input data/kitti05/image_0/ \
+    --output results/kitti05/ \
+    --ground-truth data/kitti05/poses.txt \
+    --fov 90.0
+```
+
 ## Known Limitations
 
 **Scale ambiguity.** Monocular VO only recovers the direction of translation, not

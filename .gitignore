@@ -26,6 +26,5 @@ build/
 
 # Project-specific
 .omo/evidence/
-data/
 eval/reports/
 output/
