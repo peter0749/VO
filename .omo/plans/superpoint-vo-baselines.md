@@ -82,14 +82,14 @@ Provide a reproducible, automated pipeline for validating SuperPoint VO implemen
 - `eval/requirements.txt` — dev-dependencies (evo, matplotlib for plots)
 
 ### Definition of Done
-- [ ] `python scripts/download_data.py --dataset kitti05` completes and data/ has 2761 PNGs + poses + calib
-- [ ] `bash scripts/setup_baseline.sh` clones minislam and verifies installation
-- [ ] `python eval/compare.py --mode ci` runs on synthetic data in <60 seconds
-- [ ] `python eval/compare.py --mode full --dataset kitti05` runs end-to-end on KITTI
-- [ ] `eval/reports/comparison_report.md` contains APE/RPE tables + 2+ trajectory plots
-- [ ] `docs/baseline_comparison.md` has 4 sections (Feature, Match, Pose, Trajectory), each with comparison table
-- [ ] Cross-validation: evo APE matches our eval.py APE within 5% on same trajectory pair
-- [ ] `slam_dnn` never imports from `baselines/` or `eval/` (package independence preserved)
+- [x] `python scripts/download_data.py --dataset kitti05` completes and data/ has 2761 PNGs + poses + calib
+- [x] `bash scripts/setup_baseline.sh` clones minislam and verifies installation (graceful fallback when pip blocked)
+- [ ] `python eval/compare.py --mode ci` runs on synthetic data in <60 seconds — NOT IMPLEMENTED (only --mode mock)
+- [ ] `python eval/compare.py --mode full --dataset kitti05` runs end-to-end on KITTI — NOT IMPLEMENTED
+- [x] `eval/reports/comparison_report.md` contains APE/RPE tables + 2+ trajectory plots (mock mode)
+- [x] `docs/baseline_comparison.md` has 4 sections (Feature, Match, Pose, Trajectory), each with comparison table
+- [ ] Cross-validation: evo APE matches our eval.py APE within 5% — evo not installed
+- [x] `slam_dnn` never imports from `baselines/` or `eval/` (package independence preserved)
 
 ### Must Have
 - KITTI 05 dataset support (ETH RPG lightweight subset, auto-download)
