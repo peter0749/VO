@@ -215,7 +215,7 @@ SLAM-DNN/
 
 ### Wave 8: Infrastructure Setup (After F1-F4 APPROVED, All Parallel)
 
-- [ ] 20. Dataset Download Infrastructure + Data Layout
+- [x] 20. Dataset Download Infrastructure + Data Layout
 
   **What to do**:
   - Create `scripts/download_data.py` that downloads ETH RPG lightweight subsets:
@@ -306,7 +306,7 @@ SLAM-DNN/
 
   **Commit**: NO (groups with Wave 8)
 
-- [ ] 21. KITTI-Specific FrameLoader Extension
+- [x] 21. KITTI-Specific FrameLoader Extension
 
   **What to do**:
   - Create new module `slam_dnn/kitti_loader.py` with `KITTIFrameLoader` class:
@@ -454,7 +454,7 @@ SLAM-DNN/
 
   **Commit**: NO (groups with Wave 8)
 
-- [ ] 22. Synthetic Data Generator (3 Scenarios)
+- [x] 22. Synthetic Data Generator (3 Scenarios)
 
   **What to do**:
   - Create `slam_dnn/testdata/synthetic.py` (inside package for reuse in CI):
@@ -573,7 +573,7 @@ SLAM-DNN/
 
   **Commit**: NO (groups with Wave 8)
 
-- [ ] 23. Baseline Submodule + Wrapper (minislam)
+- [x] 23. Baseline Submodule + Wrapper (minislam)
 
   **What to do**:
   - Add `minislam` as git submodule at `baselines/minislam/`:
@@ -699,7 +699,7 @@ SLAM-DNN/
   - Files: `.gitmodules`, `baselines/minislam`, `baselines/minislam_wrapper.py`, `baselines/README.md`, `scripts/setup_baseline.sh`, `tests/test_baseline_wrapper.py`
   - Pre-commit: `bash scripts/setup_baseline.sh && python -m pytest tests/test_baseline_wrapper.py -v`
 
-- [ ] 25. Code Comparison Documentation (4 Pipeline Stages)
+- [x] 25. Code Comparison Documentation (4 Pipeline Stages)
 
   **What to do**:
   - Create `docs/baseline_comparison.md` with **exactly 4 sections** (Metis guardrail):
@@ -815,7 +815,7 @@ SLAM-DNN/
 
 ### Wave 9: Integration (After Wave 8 Complete)
 
-- [ ] 24. Comparison Pipeline (evo + Report Generation)
+- [x] 24. Comparison Pipeline (evo + Report Generation)
 
   **What to do**:
   - Create `eval/compare.py` as main orchestration script:
@@ -1002,19 +1002,19 @@ SLAM-DNN/
 
 > 4 parallel reviews mirroring F1-F4 structure, focused on Phase 3 deliverables. ALL must APPROVE.
 
-- [ ] F1. **Plan Amendment Compliance** — `oracle`
+- [x] F1. **Plan Amendment Compliance** — `oracle`
   Read Phase 3 plan end-to-end. Verify: (a) Guardrail amendment section is documented at top, (b) `evo` is in `eval/requirements.txt` NOT in `slam_dnn/`, (c) `baselines/` directory exists and is never imported by `slam_dnn/`, (d) `data/` is gitignored, (e) evaluation scripts live only in `eval/` or `scripts/`, never in `slam_dnn/`.
   Output: `Guardrails [N/N verified] | Package Independence [PASS/FAIL] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Evaluation Script Functionality** — `unspecified-high`
+- [x] F2. **Evaluation Script Functionality** — `unspecified-high`
   Execute `python eval/compare.py --mode ci` end-to-end. Verify report file contains all required sections (Dataset, APE table, RPE table, Execution Time, Cross-validation). Verify PNG plots are valid images. Verify cross-validation section shows evo APE ≈ eval.py APE within 5%. Run `--mode full --skip-baseline` if KITTI 05 available. Verify graceful fallback for "Baseline unavailable" scenario.
   Output: `CI Mode [PASS/FAIL] | Report [sections/present] | Plots [valid] | Cross-validation [within 5%] | VERDICT`
 
-- [ ] F3. **Baseline Integration Integrity** — `unspecified-high`
+- [x] F3. **Baseline Integration Integrity** — `unspecified-high`
   Verify `baselines/minislam/` is a valid git submodule with pinned commit. Run `bash scripts/setup_baseline.sh` end-to-end. Verify `baselines/minislam_wrapper.py` is importable and `check_minislam_available()` returns True. Verify wrapper can execute `run_minislam_on_kitti()` on small synthetic KITTI. Verify no files inside `baselines/minislam/` were modified.
   Output: `Submodule [valid] | Setup [PASS/FAIL] | Wrapper [working] | Unmodified [PASS/FAIL] | VERDICT`
 
-- [ ] F4. **Documentation Accuracy & Completeness** — `deep`
+- [x] F4. **Documentation Accuracy & Completeness** — `deep`
   Read `docs/baseline_comparison.md`. Verify: (a) exactly 4 pipeline-stage sections (Feature, Match, Pose, Trajectory), (b) each section has "Our Implementation" + "Baseline" + "Comparison Table", (c) all file:line references point to existing code, (d) no extra sections on loop closure/BA, (e) total length ≤10 pages equivalent. Also verify `baselines/README.md` is accurate.
   Output: `Structure [4 sections] | Snippets [N valid] | Scope [no extras] | Length [≤10pp] | VERDICT`
 
