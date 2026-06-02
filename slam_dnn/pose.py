@@ -47,17 +47,31 @@ def estimate_essential(
     points0_norm = (points0 - np.array([cx, cy])) / np.array([fx, fy])
     points1_norm = (points1 - np.array([cx, cy])) / np.array([fx, fy])
 
-    # Estimate Essential matrix using 5-point RANSAC
-    # cv2.findEssentialMat expects normalized coordinates when cameraMatrix = identity
+    # Estimate Essential matrix using USAC_MAGSAC with a fallback to traditional RANSAC
     f_mean = (fx + fy) / 2.0  # average focal length for threshold scaling
-    E, mask = cv2.findEssentialMat(
-        points0_norm,
-        points1_norm,
-        cameraMatrix=np.eye(3),
-        method=cv2.RANSAC,
-        prob=conf,
-        threshold=ransac_thresh / f_mean,
-    )
+    E, mask = None, None
+    if hasattr(cv2, 'USAC_MAGSAC'):
+        try:
+            E, mask = cv2.findEssentialMat(
+                points0_norm,
+                points1_norm,
+                cameraMatrix=np.eye(3),
+                method=cv2.USAC_MAGSAC,
+                prob=conf,
+                threshold=ransac_thresh / f_mean,
+            )
+        except Exception:
+            pass
+
+    if E is None:
+        E, mask = cv2.findEssentialMat(
+            points0_norm,
+            points1_norm,
+            cameraMatrix=np.eye(3),
+            method=cv2.RANSAC,
+            prob=conf,
+            threshold=ransac_thresh / f_mean,
+        )
 
     if E is None:
         return None

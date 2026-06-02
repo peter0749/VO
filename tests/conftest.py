@@ -124,6 +124,12 @@ def pytest_addoption(parser):
         default=False,
         help="Skip tests that require baseline submodules (e.g. minislam).",
     )
+    parser.addoption(
+        "--run-slow",
+        action="store_true",
+        default=False,
+        help="Run slow integration, synthetic VO, and robustness tests.",
+    )
 
 
 def pytest_configure(config):
@@ -131,11 +137,24 @@ def pytest_configure(config):
         "markers",
         "baseline: test requires a baseline submodule (e.g. minislam)",
     )
+    config.addinivalue_line(
+        "markers",
+        "slow: test runs slowly and is skipped by default",
+    )
 
 
 def pytest_collection_modifyitems(config, items):
+    # Handle baseline skip option
     if config.getoption("--skip-baseline"):
-        skip_marker = pytest.mark.skip(reason="--skip-baseline flag set")
+        skip_baseline = pytest.mark.skip(reason="--skip-baseline flag set")
         for item in items:
             if "baseline" in item.keywords:
-                item.add_marker(skip_marker)
+                item.add_marker(skip_baseline)
+
+    # Handle slow skip option (by default slow tests are skipped)
+    if not config.getoption("--run-slow"):
+        skip_slow = pytest.mark.skip(reason="need --run-slow option to run")
+        for item in items:
+            if "slow" in item.keywords:
+                item.add_marker(skip_slow)
+

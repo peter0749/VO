@@ -15,6 +15,7 @@ estimation, with loop closure detection via descriptor similarity.
 
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -23,6 +24,10 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 MINISLAM_SUBMODULE = Path(__file__).parent / "minislam"
+MINISLAM_SRC = MINISLAM_SUBMODULE / "src"
+if MINISLAM_SRC.is_dir() and str(MINISLAM_SRC) not in sys.path:
+    sys.path.insert(0, str(MINISLAM_SRC))
+
 PINNED_COMMIT = "962096d5bb8919317cceef9c0f2f98f023d9fcf3"
 
 

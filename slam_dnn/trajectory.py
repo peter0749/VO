@@ -124,6 +124,8 @@ class TrajectoryAccumulator:
         self.poses: list[np.ndarray] = [np.eye(4, dtype=np.float64)]
         self._current_R: np.ndarray = np.eye(3, dtype=np.float64)
         self._current_t: np.ndarray = np.zeros(3, dtype=np.float64)
+        self._kf_R: np.ndarray = np.eye(3, dtype=np.float64)
+        self._kf_t: np.ndarray = np.zeros(3, dtype=np.float64)
 
     def add_pose(self, R: np.ndarray, t: np.ndarray) -> None:
         """Add a relative pose (frame i-1 to frame i) to the trajectory.
@@ -157,6 +159,43 @@ class TrajectoryAccumulator:
         # Update global rotation: compose
         # R_global_new = R_global_old @ R_rel
         self._current_R = self._current_R @ R
+
+        # Periodically SVD re-orthogonalize to prevent numerical drift (Phase 2.4!)
+        U, _, Vt = np.linalg.svd(self._current_R)
+        self._current_R = U @ Vt
+
+        # Build 4x4 SE3 and append to trajectory list
+        T_current = pose_Rt(self._current_R, self._current_t)
+        self.poses.append(T_current)
+
+    def add_pose_relative_to_keyframe(self, R: np.ndarray, t: np.ndarray, is_keyframe: bool = True) -> None:
+        """Add a relative pose where the pose is computed relative to the last keyframe.
+
+        If is_keyframe is True, the keyframe base pose is updated to this new pose.
+        If is_keyframe is False, the pose is appended, but subsequent frames will
+        still calculate their pose relative to the previous keyframe.
+        """
+        t = np.asarray(t, dtype=np.float64).flatten()
+        R = np.asarray(R, dtype=np.float64)
+
+        t_norm = np.linalg.norm(t)
+        if t_norm > 1e-8:
+            t_unit = t / t_norm
+        else:
+            t_unit = t
+
+        # Compute new global pose relative to the last keyframe base
+        self._current_t = self._kf_t + self.scale * (self._kf_R @ t_unit)
+        self._current_R = self._kf_R @ R
+
+        # SVD re-orthogonalize to prevent numerical drift
+        U, _, Vt = np.linalg.svd(self._current_R)
+        self._current_R = U @ Vt
+
+        if is_keyframe:
+            # Update keyframe base to current global pose
+            self._kf_R = self._current_R.copy()
+            self._kf_t = self._current_t.copy()
 
         # Build 4x4 SE3 and append to trajectory list
         T_current = pose_Rt(self._current_R, self._current_t)
@@ -202,6 +241,8 @@ class TrajectoryAccumulator:
         self.poses = [np.eye(4, dtype=np.float64)]
         self._current_R = np.eye(3, dtype=np.float64)
         self._current_t = np.zeros(3, dtype=np.float64)
+        self._kf_R = np.eye(3, dtype=np.float64)
+        self._kf_t = np.zeros(3, dtype=np.float64)
 
     def __len__(self) -> int:
         """Return the number of accumulated poses, including the initial identity.

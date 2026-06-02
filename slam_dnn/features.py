@@ -2,6 +2,7 @@
 
 import numpy as np
 import torch
+import cv2
 from lightglue import SuperPoint
 
 
@@ -37,10 +38,17 @@ class SuperPointExtractor:
         max_keypoints: int = 1024,
         conf_thresh: float = 0.005,
         device: str = "auto",
+        target_resolution: int | None = None,
     ):
         if device == "auto":
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                device = "mps"
+            else:
+                device = "cpu"
         self.device = device
+        self.target_resolution = target_resolution
 
         self.superpoint = SuperPoint(
             max_num_keypoints=max_keypoints,
@@ -75,8 +83,16 @@ class SuperPointExtractor:
             >>> print(feats['keypoints'].shape, feats['descriptors'].shape)
             (N, 2) (N, 256)
         """
-        # Convert uint8 → float32 in [0, 1]
-        img = image.astype(np.float32) / 255.0
+        h, w = image.shape[:2]
+        scale_factor = 1.0
+        if self.target_resolution is not None and max(h, w) > self.target_resolution:
+            scale_factor = self.target_resolution / max(h, w)
+            new_w = int(w * scale_factor)
+            new_h = int(h * scale_factor)
+            resized_img = cv2.resize(image, (new_w, new_h))
+            img = resized_img.astype(np.float32) / 255.0
+        else:
+            img = image.astype(np.float32) / 255.0
 
         # Build (1, C, H, W) tensor
         if img.ndim == 2:
@@ -97,6 +113,10 @@ class SuperPointExtractor:
         keypoints = pred["keypoints"][0].cpu().numpy()        # (N, 2)
         descriptors = pred["descriptors"][0].cpu().numpy()    # (N, 256)
         scores = pred["keypoint_scores"][0].cpu().numpy()    # (N,)
+
+        # Rescale keypoints back to original resolution if scaled
+        if scale_factor != 1.0:
+            keypoints = keypoints / scale_factor
 
         # Ensure float32
         keypoints = keypoints.astype(np.float32)

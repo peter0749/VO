@@ -21,3 +21,16 @@ class VOConfig:
     fov_deg: float = 63.0
     handle_pure_rotation: bool = True
     device: str = 'auto'              # 'auto' | 'cuda' | 'mps' | 'cpu'
+    
+    # Keyframe Selection Heuristics
+    use_keyframe_selection: bool = True
+    min_parallax: float = 8.0         # minimum median parallax (pixels) to trigger keyframe
+    max_overlap: float = 0.85         # maximum overlap ratio before keyframe is forced
+    max_keyframe_interval: int = 10   # maximum consecutive frames before forcing keyframe
+    
+    # Constant Velocity Motion Model
+    use_motion_model: bool = True
+    motion_model_alpha: float = 0.5   # velocity smoothing EMA factor
+
+    # Speed Optimizations
+    target_resolution: int | None = None  # if not None, image is resized so max(H, W) <= target_resolution

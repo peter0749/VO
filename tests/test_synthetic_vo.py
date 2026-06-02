@@ -10,6 +10,8 @@ import logging
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.slow
+
 import cv2
 import torch
 

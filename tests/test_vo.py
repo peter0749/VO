@@ -81,7 +81,7 @@ class TestVisualOdometryStats:
         img = np.random.randint(0, 255, (480, 640), dtype=np.uint8)
         vo.process_frame(img)
         stats = vo.get_stats()
-        expected_keys = {"total", "successful", "tracking_lost", "pose_failed"}
+        expected_keys = {"total", "successful", "tracking_lost", "pose_failed", "keyframes", "motion_model_fallbacks"}
         assert set(stats.keys()) == expected_keys
         assert stats["total"] == 1
 
@@ -181,3 +181,119 @@ class TestVisualOdometryEdgeCases:
         pose = vo.process_frame(img)
         assert pose is None, "After reset, first frame should return None"
         assert vo.get_stats()["total"] == 1
+
+
+class TestKeyframeSelector:
+    """Tests for KeyframeSelector class."""
+
+    def test_keyframe_selector_initialization(self):
+        """Constructor stores parameters correctly."""
+        from slam_dnn.keyframe import KeyframeSelector
+        selector = KeyframeSelector(min_parallax=5.0, max_overlap=0.9, max_interval=5)
+        assert selector.min_parallax == 5.0
+        assert selector.max_overlap == 0.9
+        assert selector.max_interval == 5
+
+    def test_keyframe_selector_interval_cap(self):
+        """Always triggers keyframe when interval cap is reached."""
+        from slam_dnn.keyframe import KeyframeSelector
+        selector = KeyframeSelector(min_parallax=100.0, max_overlap=0.0, max_interval=2)
+        pts = np.array([[10, 10]], dtype=np.float32)
+        
+        # First call increments counter but doesn't trigger since parallax/overlap are low
+        assert not selector.should_insert(pts, pts, 10)
+        # Second call reaches max_interval=2, forcing a keyframe
+        assert selector.should_insert(pts, pts, 10)
+
+    def test_keyframe_selector_parallax_trigger(self):
+        """Triggers keyframe when median parallax is high."""
+        from slam_dnn.keyframe import KeyframeSelector
+        selector = KeyframeSelector(min_parallax=10.0, max_overlap=0.0, max_interval=10)
+        pts0 = np.array([[10, 10]], dtype=np.float32)
+        pts1 = np.array([[21, 10]], dtype=np.float32)  # displacement is 11 > 10
+        assert selector.should_insert(pts0, pts1, 10)
+
+    def test_keyframe_selector_overlap_trigger(self):
+        """Triggers keyframe when overlap ratio is low."""
+        from slam_dnn.keyframe import KeyframeSelector
+        selector = KeyframeSelector(min_parallax=100.0, max_overlap=0.8, max_interval=10)
+        pts = np.array([[10, 10], [20, 20]], dtype=np.float32)
+        # 2 matches out of 10 total features = 0.2 overlap < 0.8 trigger threshold
+        assert selector.should_insert(pts, pts, 10)
+
+
+class TestMotionModel:
+    """Tests for MotionModel class."""
+
+    def test_motion_model_initialization(self):
+        """Constructor stores parameters correctly."""
+        from slam_dnn.motion_model import MotionModel
+        model = MotionModel(ema_alpha=0.3)
+        assert model.ema_alpha == 0.3
+        assert not model._initialized
+
+    def test_motion_model_update_and_predict(self):
+        """MotionModel successfully updates velocity and predicts relative poses."""
+        from slam_dnn.motion_model import MotionModel
+        model = MotionModel(ema_alpha=1.0)  # Always use the newest pose
+        
+        R = np.eye(3)
+        t = np.array([1.0, 2.0, 3.0])
+        model.update(R, t)
+        
+        R_pred, t_pred = model.predict()
+        assert model._initialized
+        npt.assert_array_almost_equal(R_pred, R)
+        npt.assert_array_almost_equal(t_pred, t)
+
+    def test_motion_model_reset(self):
+        """Reset clears state."""
+        from slam_dnn.motion_model import MotionModel
+        model = MotionModel()
+        model.update(np.eye(3), np.array([1, 1, 1]))
+        model.reset()
+        assert not model._initialized
+        npt.assert_array_almost_equal(model._t_vel, np.zeros(3))
+
+
+class TestTrackManager:
+    """Tests for TrackManager cross-frame tracking class."""
+
+    def test_track_manager_propagation(self):
+        """TrackManager correctly propagates unique feature track IDs."""
+        from slam_dnn.local_ba import TrackManager
+        manager = TrackManager()
+        
+        kps0 = np.array([[10, 10], [20, 20]], dtype=np.float32)
+        kps1 = np.array([[15, 15], [25, 25]], dtype=np.float32)
+        matches = np.array([[0, 0], [1, 1]], dtype=np.int32)
+        
+        manager.add_keyframe_matches(1, 0, kps0, kps1, matches)
+        assert len(manager.tracks) == 2
+        assert 0 in manager.frame_to_tracks[0]
+        assert 1 in manager.frame_to_tracks[1]
+
+
+class TestLocalBundleAdjuster:
+    """Tests for LocalBundleAdjuster optimization class."""
+
+    def test_local_ba_initialization(self):
+        """Constructor stores parameters correctly."""
+        from slam_dnn.local_ba import LocalBundleAdjuster
+        ba = LocalBundleAdjuster(window_size=5)
+        assert ba.window_size == 5
+
+
+class TestVisualOdometryTimings:
+    """Tests for pipeline timing instrumentation."""
+
+    def test_get_timings_keys(self, camera):
+        """get_timings returns dictionary with expected timing stage keys."""
+        vo = VisualOdometry(camera, device="cpu")
+        timings = vo.get_timings()
+        expected = {"extraction", "matching", "pose_estimation", "total"}
+        assert set(timings.keys()) == expected
+        assert all(isinstance(v, float) for v in timings.values())
+
+
+

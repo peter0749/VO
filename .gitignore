@@ -29,3 +29,4 @@ build/
 eval/reports/
 output/
 results/
+baselines/pyslam/

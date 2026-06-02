@@ -257,16 +257,16 @@ For 3D visualization, use `plot_trajectory_3d` from the same module.
 
 ## Testing
 
-Run the full test suite:
+Run fast unit tests (slow integration/robustness tests are skipped by default):
 
 ```bash
 pytest tests/
 ```
 
-Run only fast unit tests (skips slow integration tests):
+Run the full test suite (including slow synthetic VO and prototype robustness tests):
 
 ```bash
-pytest tests/ --ignore=tests/test_synthetic_vo.py
+pytest tests/ --run-slow
 ```
 
 The test suite covers unit tests for every module, integration tests for the full

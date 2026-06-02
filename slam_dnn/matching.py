@@ -68,7 +68,12 @@ class LightGlueMatcher(MatcherBase):
         """
         # Resolve device
         if device == "auto":
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            if torch.cuda.is_available():
+                self.device = torch.device("cuda")
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                self.device = torch.device("mps")
+            else:
+                self.device = torch.device("cpu")
         else:
             self.device = torch.device(device)
 
@@ -163,20 +168,17 @@ class ClassicMatcher(MatcherBase):
     def __init__(
         self,
         ratio: float = 0.75,
-        ransac_reproj_threshold: float = 3.0,
         method: str = "bf",
         device: str = "cpu",
     ):
         """
         Args:
             ratio: Lowe's ratio test parameter (default 0.75, stricter = lower)
-            ransac_reproj_threshold: RANSAC reprojection threshold
             method: 'bf' (brute-force) or 'flann'
             device: Ignored (kept for MatcherBase interface compatibility);
                     ClassicMatcher is always CPU-only since cv2 matchers are CPU.
         """
         self.ratio = ratio
-        self.ransac_reproj_threshold = ransac_reproj_threshold
 
         if method == "bf":
             self.matcher = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
