@@ -1,4 +1,5 @@
 # Dataset directories (downloaded data)
+kitti/
 kitti05/
 parking/
 
