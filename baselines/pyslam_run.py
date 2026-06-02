@@ -1230,19 +1230,27 @@ def main():
     try:
         import pyslam.config_parameters as params
         
-        # Disable all visualizers / gui
-        for attr in dir(params):
+        # Disable all visualizers / gui on Parameters class
+        for attr in dir(params.Parameters):
             if any(keyword in attr.lower() for keyword in ["viewer", "visualize", "gui", "plot"]):
-                if isinstance(getattr(params, attr), bool):
-                    setattr(params, attr, False)
+                if isinstance(getattr(params.Parameters, attr), bool):
+                    setattr(params.Parameters, attr, False)
                     
-        # Programmatically disable loop closure and heavy bundle adjustment
-        if hasattr(params, "kUseLoopDetector"):
-            params.kUseLoopDetector = False
-        if hasattr(params, "enable_loop_closure"):
-            params.enable_loop_closure = False
-        if hasattr(params, "loop_closure"):
-            params.loop_closure = False
+        # Programmatically disable loop closure, volumetric integration, semantics, and heavy threads on Parameters class
+        if hasattr(params.Parameters, "kUseLoopClosing"):
+            params.Parameters.kUseLoopClosing = False
+        if hasattr(params.Parameters, "kUseLoopDetector"):
+            params.Parameters.kUseLoopDetector = False
+        if hasattr(params.Parameters, "kDoVolumetricIntegration"):
+            params.Parameters.kDoVolumetricIntegration = False
+        if hasattr(params.Parameters, "kDoSparseSemanticMappingAndSegmentation"):
+            params.Parameters.kDoSparseSemanticMappingAndSegmentation = False
+        if hasattr(params.Parameters, "kLocalMappingOnSeparateThread"):
+            params.Parameters.kLocalMappingOnSeparateThread = False
+        if hasattr(params.Parameters, "enable_loop_closure"):
+            params.Parameters.enable_loop_closure = False
+        if hasattr(params.Parameters, "loop_closure"):
+            params.Parameters.loop_closure = False
             
         # Select target feature tracker
         from local_features.feature_tracker_configs import FeatureTrackerConfigs
@@ -1275,12 +1283,37 @@ def main():
     ]
     
     if args.max_frames is not None:
-        # If pySLAM accepts max_frames, set it, or check how we can inject it
+        # Monkey patch dataset_factory to enforce max_frames limit cleanly
         try:
-            import pyslam.config_parameters as params
-            params.max_frames = args.max_frames
-        except Exception:
-            pass
+            import pyslam.io.dataset_factory as dataset_factory_module
+            original_dataset_factory = dataset_factory_module.dataset_factory
+            
+            def monkey_patched_dataset_factory(*args_factory, **kwargs_factory):
+                dataset = original_dataset_factory(*args_factory, **kwargs_factory)
+                original_getImageColor = dataset.getImageColor
+                original_getDepth = dataset.getDepth
+                
+                def patched_getImageColor(img_id):
+                    if img_id >= args.max_frames:
+                        dataset.is_ok = False
+                        return None
+                    return original_getImageColor(img_id)
+                    
+                def patched_getDepth(img_id):
+                    if img_id >= args.max_frames:
+                        dataset.is_ok = False
+                        return None
+                    return original_getDepth(img_id)
+                
+                dataset.getImageColor = patched_getImageColor
+                dataset.getDepth = patched_getDepth
+                dataset.num_frames = min(dataset.num_frames, args.max_frames)
+                return dataset
+                
+            dataset_factory_module.dataset_factory = monkey_patched_dataset_factory
+            print(f"pySLAM: Successfully monkey-patched dataset_factory to limit frames to {args.max_frames}")
+        except Exception as e:
+            print(f"Warning: Could not monkey-patch dataset_factory: {e}")
             
     # Inject PYTHONPATH and run main_slam
     try:
