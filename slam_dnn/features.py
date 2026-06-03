@@ -134,3 +134,99 @@ class SuperPointExtractor:
             "descriptors": descriptors,
             "scores": scores,
         }
+
+
+class XFeatExtractor:
+    """Wrapper around XFeat model for feature extraction.
+
+    XFeat is a lightweight CNN that detects keypoints, scores, and extracts
+    64-dimensional descriptors in real-time.
+    """
+
+    def __init__(
+        self,
+        max_keypoints: int = 2048,
+        conf_thresh: float = 0.05,
+        device: str = "auto",
+        target_resolution: int | None = None,
+    ):
+        if device == "auto":
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                device = "mps"
+            else:
+                device = "cpu"
+        self.device = device
+        self.target_resolution = target_resolution
+
+        # Dynamic import of XFeat
+        import sys
+        from pathlib import Path
+        project_root = Path(__file__).parent.parent
+        xfeat_path = project_root / "slam_dnn" / "thirdparty" / "accelerated_features"
+        if str(xfeat_path) not in sys.path:
+            sys.path.append(str(xfeat_path))
+        
+        from modules.xfeat import XFeat
+        
+        self.xfeat = XFeat(top_k=max_keypoints, detection_threshold=conf_thresh)
+        self.xfeat.dev = torch.device(self.device)
+        self.xfeat.net.to(self.device)
+
+    def extract(self, image: np.ndarray) -> dict:
+        """Extract XFeat features from an image.
+
+        Converts uint8 input to float32 in [0, 1], and runs the model.
+        """
+        h, w = image.shape[:2]
+        scale_factor = 1.0
+        if self.target_resolution is not None and max(h, w) > self.target_resolution:
+            scale_factor = self.target_resolution / max(h, w)
+            new_w = int(w * scale_factor)
+            new_h = int(h * scale_factor)
+            resized_img = cv2.resize(image, (new_w, new_h))
+            img = resized_img.astype(np.float32) / 255.0
+        else:
+            img = image.astype(np.float32) / 255.0
+
+        # Build (1, C, H, W) tensor
+        if img.ndim == 2:
+            # Grayscale: (H, W) → (1, 1, H, W)
+            tensor = torch.from_numpy(img).unsqueeze(0).unsqueeze(0)
+        elif img.ndim == 3:
+            # Color: (H, W, 3) → (1, 3, H, W)
+            tensor = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0)
+        else:
+            raise ValueError(f"Expected 2D or 3D image, got shape {image.shape}")
+
+        tensor = tensor.to(self.device)
+
+        with torch.no_grad():
+            # XFeat returns a list of dicts, take the first one (batch size = 1)
+            pred = self.xfeat.detectAndCompute(tensor)[0]
+
+        # Remove batch dimension
+        keypoints = pred["keypoints"].cpu().numpy()        # (N, 2)
+        descriptors = pred["descriptors"].cpu().numpy()    # (N, 64)
+        scores = pred["scores"].cpu().numpy()              # (N,)
+
+        # Rescale keypoints back to original resolution if scaled
+        if scale_factor != 1.0:
+            keypoints = keypoints / scale_factor
+
+        # Ensure float32
+        keypoints = keypoints.astype(np.float32)
+        descriptors = descriptors.astype(np.float32)
+        scores = scores.astype(np.float32)
+
+        # Re-normalize descriptors (safety check)
+        norms = np.linalg.norm(descriptors, axis=1, keepdims=True)
+        norms = np.clip(norms, 1e-8, None)
+        descriptors = descriptors / norms
+
+        return {
+            "keypoints": keypoints,
+            "descriptors": descriptors,
+            "scores": scores,
+        }

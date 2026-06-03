@@ -154,6 +154,20 @@ def run_pyslam_on_kitti(
         return []
         
     # Read the output trajectory
+    # If the process exited abruptly via os._exit(), the copying phase in pyslam_run.py might have been bypassed.
+    # We fallback to check if _final.txt or _online.txt exist in the output folder.
+    if not os.path.isfile(temp_trajectory_file):
+        base_path = temp_trajectory_file[:-4] if temp_trajectory_file.endswith(".txt") else temp_trajectory_file
+        final_path = base_path + "_final.txt"
+        online_path = base_path + "_online.txt"
+        import shutil
+        if os.path.isfile(final_path):
+            shutil.copy2(final_path, temp_trajectory_file)
+            logger.info("pySLAM wrapper: Recovered trajectory from %s", final_path)
+        elif os.path.isfile(online_path):
+            shutil.copy2(online_path, temp_trajectory_file)
+            logger.info("pySLAM wrapper: Recovered trajectory from %s", online_path)
+
     if not os.path.isfile(temp_trajectory_file):
         logger.error("pySLAM output trajectory file was not generated at: %s", temp_trajectory_file)
         return []

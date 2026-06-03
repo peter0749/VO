@@ -351,6 +351,49 @@ class MockQuaternion:
         
     def rotation_matrix(self):
         return self.matrix()
+        
+    def inverse(self):
+        x, y, z, w = self.q
+        return MockQuaternion(w, -x, -y, -z)
+        
+    def __mul__(self, other):
+        if isinstance(other, MockQuaternion):
+            R1 = self.matrix()
+            R2 = other.matrix()
+            return MockQuaternion(R1 @ R2)
+        elif isinstance(other, (np.ndarray, list, tuple)):
+            other_arr = np.array(other)
+            if other_arr.shape[-1] == 3:
+                R = self.matrix()
+                if other_arr.ndim > 1:
+                    return (R @ other_arr.T).T
+                else:
+                    return R @ other_arr
+        return NotImplemented
+        
+    def normalize(self):
+        norm = np.linalg.norm(self.q)
+        if norm > 1e-8:
+            self.q = self.q / norm
+        return self
+        
+    def coeffs(self):
+        return self.q
+        
+    def vec(self):
+        return self.q[:3]
+        
+    def x(self):
+        return self.q[0]
+        
+    def y(self):
+        return self.q[1]
+        
+    def z(self):
+        return self.q[2]
+        
+    def w(self):
+        return self.q[3]
 
 class MockSE3Quat:
     def __init__(self, rotation=None, translation=None):
@@ -416,6 +459,23 @@ class MockIsometry3d:
         inv_mat[:3, :3] = R.T
         inv_mat[:3, 3] = -R.T @ t
         return MockIsometry3d(inv_mat)
+
+    def __mul__(self, other):
+        if isinstance(other, MockIsometry3d):
+            return MockIsometry3d(self._matrix @ other._matrix)
+        elif isinstance(other, np.ndarray):
+            if other.shape[-1] == 3:
+                # Transform 3D point(s)
+                if other.ndim > 1:
+                    h_pts = np.hstack([other, np.ones((other.shape[0], 1))])
+                    return (self._matrix @ h_pts.T).T[..., :3]
+                else:
+                    h_pt = np.append(other, 1.0)
+                    return (self._matrix @ h_pt)[..., :3]
+            elif other.shape[-1] == 4:
+                # Transform homogeneous coordinates
+                return (self._matrix @ other.T).T
+        return NotImplemented
 
 class MockAngleAxis:
     def __init__(self, q):
@@ -1168,6 +1228,42 @@ def setup_temp_kitti_dir(dataset_dir: str) -> tempfile.TemporaryDirectory:
     return tmp_dir
 
 
+def parse_calib_and_image_size(dataset_dir: str):
+    # 1. Get image size
+    img_dir = os.path.join(dataset_dir, "image_0")
+    width, height = 1226, 370 # defaults
+    if os.path.isdir(img_dir):
+        files = sorted(os.listdir(img_dir))
+        for f in files:
+            if f.endswith((".png", ".jpg", ".jpeg")):
+                img_path = os.path.join(img_dir, f)
+                img = cv2.imread(img_path)
+                if img is not None:
+                    height, width = img.shape[:2]
+                    break
+                    
+    # 2. Get calib parameters
+    fx, fy, cx, cy = 707.0912, 707.0912, 601.8873, 183.1104 # defaults
+    calib_path = os.path.join(dataset_dir, "calib.txt")
+    if os.path.isfile(calib_path):
+        try:
+            with open(calib_path, "r") as f:
+                for line in f:
+                    if line.startswith("P0:") or line.startswith("P:"):
+                        parts = line.strip().split()
+                        vals = [float(x) for x in parts[1:]]
+                        if len(vals) >= 12:
+                            fx = vals[0]
+                            fy = vals[5]
+                            cx = vals[2]
+                            cy = vals[6]
+                            break
+        except Exception:
+            pass
+            
+    return width, height, fx, fy, cx, cy
+
+
 def main():
     parser = argparse.ArgumentParser(description="Standalone runner for pySLAM baselines")
     parser.add_argument("--tracker", required=True, choices=["orb2", "sift", "superpoint", "xfeat"])
@@ -1185,7 +1281,30 @@ def main():
     tmp_kitti_dir = setup_temp_kitti_dir(args.dataset_dir)
     print(f"Temporary KITTI layout ready at: {tmp_kitti_dir.name}")
     
-    # 2. Modify config.yaml
+    # 2. Parse camera properties and generate custom settings.yaml
+    width, height, fx, fy, cx, cy = parse_calib_and_image_size(args.dataset_dir)
+    temp_settings_path = os.path.join(tmp_kitti_dir.name, "settings.yaml")
+    with open(temp_settings_path, "w") as f:
+        f.write(f"Camera.fx: {fx}\n")
+        f.write(f"Camera.fy: {fy}\n")
+        f.write(f"Camera.cx: {cx}\n")
+        f.write(f"Camera.cy: {cy}\n")
+        f.write("Camera.k1: 0.0\n")
+        f.write("Camera.k2: 0.0\n")
+        f.write("Camera.p1: 0.0\n")
+        f.write("Camera.p2: 0.0\n")
+        f.write(f"Camera.width: {width}\n")
+        f.write(f"Camera.height: {height}\n")
+        f.write("Camera.fps: 10.0\n")
+        f.write("Camera.bf: 379.8145\n")
+        f.write("Camera.RGB: 1\n")
+        f.write("ThDepth: 40\n")
+        f.write("Viewer.on: 0\n")
+        f.write("FeatureTrackerConfig.nFeatures: 2000\n")
+        f.write(f"FeatureTrackerConfig.name: {args.tracker.upper()}\n")
+    print(f"pySLAM: Dynamically configured camera settings: {width}x{height}, fx={fx}, fy={fy}, cx={cx}, cy={cy}")
+
+    # 3. Modify config.yaml
     original_config_path = PYSLAM_ROOT / "config.yaml"
     temp_config_path = Path(tmp_kitti_dir.name) / "temp_config.yaml"
     
@@ -1204,7 +1323,7 @@ def main():
         "type": "kitti",
         "base_path": tmp_kitti_dir.name,
         "name": "05",
-        "settings": "settings/KITTI04-12.yaml" if not args.no_calib else "settings/KITTI04-12.yaml",
+        "settings": os.path.abspath(temp_settings_path),
         "groundtruth_file": os.path.join(tmp_kitti_dir.name, "poses", "05.txt"),
         "sensor_type": "mono"
     }
@@ -1314,7 +1433,85 @@ def main():
             print(f"pySLAM: Successfully monkey-patched dataset_factory to limit frames to {args.max_frames}")
         except Exception as e:
             print(f"Warning: Could not monkey-patch dataset_factory: {e}")
+             
+    # Monkey patch MapPointBase to bypass culling AssertionError in pure Python mode
+    try:
+        import pyslam.slam.map_point as map_point_module
+        original_remove_observation = map_point_module.MapPointBase.remove_observation
+        
+        def monkey_patched_remove_observation(self, keyframe, idx=None, map_no_lock=False):
+            assert keyframe.is_keyframe
+            kf_remove_point_match = False
+            kf_remove_point = False
+            set_bad = False
+
+            with self._lock_features:
+                if idx is not None:
+                    kf_remove_point_match = True
+                else:
+                    kf_remove_point = True
+                try:
+                    del self._observations[keyframe]
+                    if keyframe.kps_ur is not None and idx is not None and keyframe.kps_ur[idx] >= 0:
+                        self._num_observations = max(0, self._num_observations - 2)
+                    else:
+                        self._num_observations = max(0, self._num_observations - 1)
+                    set_bad = self._num_observations <= 2
+                    if self.kf_ref is keyframe and self._observations:
+                        self.kf_ref = list(self._observations.keys())[0]
+                except KeyError:
+                    pass
+
+            if kf_remove_point_match:
+                keyframe.remove_point_match(idx)
+            if kf_remove_point:
+                keyframe.remove_point(self)
+            if set_bad:
+                self.set_bad(map_no_lock=map_no_lock)
+                         
+        map_point_module.MapPointBase.remove_observation = monkey_patched_remove_observation
+        print("pySLAM: Successfully monkey-patched MapPointBase.remove_observation to bypass AssertionError")
+        
+        # Also monkey patch remove_frame_view to avoid debug assertion crashes in Python mock mode
+        def monkey_patched_remove_frame_view(self, frame, idx=None):
+            assert not frame.is_keyframe
+            frame_remove_point_match = False
+            frame_remove_point = False
+            with self._lock_features:
+                if idx is not None:
+                    frame_remove_point_match = True
+                else:
+                    frame_remove_point = True
+                try:
+                    del self._frame_views[frame]
+                except KeyError:
+                    pass
+            if frame_remove_point_match:
+                frame.remove_point_match(idx)
+            if frame_remove_point:
+                frame.remove_point(self)
+                
+        map_point_module.MapPointBase.remove_frame_view = monkey_patched_remove_frame_view
+        print("pySLAM: Successfully monkey-patched MapPointBase.remove_frame_view to bypass AssertionError")
+    except Exception as e:
+        print(f"Warning: Could not monkey-patch MapPointBase: {e}")
             
+    # Monkey patch Slam.get_final_trajectory to prevent IndexError when 0 keyframes exist
+    try:
+        import pyslam.slam.slam as slam_module
+        original_get_final_trajectory = slam_module.Slam.get_final_trajectory
+        
+        def monkey_patched_get_final_trajectory(self):
+            if not self.map.keyframes:
+                print("Warning: No keyframes found in map, returning empty trajectory.")
+                return [], [], []
+            return original_get_final_trajectory(self)
+            
+        slam_module.Slam.get_final_trajectory = monkey_patched_get_final_trajectory
+        print("pySLAM: Successfully monkey-patched Slam.get_final_trajectory to prevent IndexError when 0 keyframes exist.")
+    except Exception as e:
+        print(f"Warning: Could not monkey-patch Slam.get_final_trajectory: {e}")
+
     # Inject PYTHONPATH and run main_slam
     try:
         # Make sure current working directory is pySLAM root so it finds settings/ folder
@@ -1347,8 +1544,10 @@ def main():
             print(f"Warning: Neither {generated_final} nor {generated_online} was found.")
             
         print("pySLAM visual SLAM execution completed successfully.")
-    except Exception as e:
-        print(f"Error executing pySLAM visual SLAM: {e}", file=sys.stderr)
+    except BaseException as e:
+        print(f"Error executing pySLAM visual SLAM: {e} (type: {type(e)})", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
     finally:
         # Clean up symlinks

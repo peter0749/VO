@@ -11,9 +11,11 @@ class VOConfig:
     """
     max_keypoints: int = 2048
     detection_threshold: float = 0.0005
-    matcher: str = 'lightglue'       # 'lightglue' or 'classic'
+    extractor: str = 'superpoint'     # 'superpoint' or 'xfeat'
+    matcher: str = 'lightglue'       # 'lightglue' or 'classic' or 'xfeat'
     lightglue_threshold: float = 0.1
     classic_ratio: float = 0.75
+    xfeat_min_cossim: float = 0.82    # minimum cosine similarity for xfeat matching
     ransac_threshold: float = 1.0
     ransac_confidence: float = 0.999
     min_matches: int = 20

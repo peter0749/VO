@@ -38,7 +38,7 @@ def create_matcher(method: str = "lightglue", **kwargs) -> MatcherBase:
     """Factory: create matcher by name.
 
     Args:
-        method: "lightglue" or "classic"
+        method: "lightglue" or "classic" or "xfeat"
         **kwargs: forwarded to matcher constructor
 
     Returns:
@@ -49,9 +49,11 @@ def create_matcher(method: str = "lightglue", **kwargs) -> MatcherBase:
     elif method == "classic":
         kwargs.pop("device", None)
         return ClassicMatcher(**kwargs)
+    elif method == "xfeat":
+        return XFeatMatcher(**kwargs)
     else:
         raise ValueError(
-            f"Unknown matcher method: {method!r}. Use 'lightglue' or 'classic'."
+            f"Unknown matcher method: {method!r}. Use 'lightglue', 'classic', or 'xfeat'."
         )
 
 
@@ -243,5 +245,70 @@ class ClassicMatcher(MatcherBase):
             "points0": points0,
             "points1": points1,
             "scores": scores,
+            "indices": indices,
+        }
+
+
+class XFeatMatcher(MatcherBase):
+    """Wraps mutual nearest neighbor matcher for XFeat features using PyTorch."""
+
+    def __init__(self, min_cossim: float = 0.82, device: str = "auto"):
+        if device == "auto":
+            if torch.cuda.is_available():
+                self.device = torch.device("cuda")
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                self.device = torch.device("mps")
+            else:
+                self.device = torch.device("cpu")
+        else:
+            self.device = torch.device(device)
+        self.min_cossim = min_cossim
+
+    def match(self, feats0: dict, feats1: dict, image_size: tuple | None = None) -> dict:
+        desc0 = torch.from_numpy(feats0["descriptors"]).to(self.device)
+        desc1 = torch.from_numpy(feats1["descriptors"]).to(self.device)
+
+        if len(desc0) == 0 or len(desc1) == 0:
+            return {
+                "points0": np.empty((0, 2), dtype=np.float32),
+                "points1": np.empty((0, 2), dtype=np.float32),
+                "scores": np.empty((0,), dtype=np.float32),
+                "indices": np.empty((0, 2), dtype=np.int32),
+            }
+
+        # Descriptors are already L2 normalized, so cosine similarity is dot product
+        cossim = desc0 @ desc1.t()
+        cossim_t = desc1 @ desc0.t()
+
+        _, match12 = cossim.max(dim=1)
+        _, match21 = cossim_t.max(dim=1)
+
+        idx0 = torch.arange(len(match12), device=self.device)
+        mutual = match21[match12] == idx0
+
+        if self.min_cossim > 0:
+            cossim_max, _ = cossim.max(dim=1)
+            good = cossim_max > self.min_cossim
+            valid = mutual & good
+            idx0 = idx0[valid]
+            idx1 = match12[valid]
+            scores = cossim_max[idx0]
+        else:
+            idx0 = idx0[mutual]
+            idx1 = match12[mutual]
+            scores = cossim[idx0, idx1]
+
+        idx0_np = idx0.cpu().numpy()
+        idx1_np = idx1.cpu().numpy()
+
+        points0 = feats0["keypoints"][idx0_np].astype(np.float32)
+        points1 = feats1["keypoints"][idx1_np].astype(np.float32)
+        scores_np = scores.cpu().numpy().astype(np.float32)
+        indices = np.stack([idx0_np, idx1_np], axis=1).astype(np.int32)
+
+        return {
+            "points0": points0,
+            "points1": points1,
+            "scores": scores_np,
             "indices": indices,
         }

@@ -6,7 +6,7 @@ from typing import Iterator
 
 from .camera import PinholeCamera
 from .config import VOConfig
-from .features import SuperPointExtractor
+from .features import SuperPointExtractor, XFeatExtractor
 from .matching import MatcherBase, create_matcher
 from .pose import estimate_essential, estimate_essential_or_homography
 from .trajectory import TrajectoryAccumulator
@@ -83,12 +83,22 @@ class VisualOdometry:
         self._ransac_threshold = config.ransac_threshold
         self._ransac_confidence = config.ransac_confidence
 
-        self.extractor = SuperPointExtractor(
-            max_keypoints=config.max_keypoints,
-            conf_thresh=config.detection_threshold,
-            device=config.device,
-            target_resolution=config.target_resolution,
-        )
+        if config.extractor == 'superpoint':
+            self.extractor = SuperPointExtractor(
+                max_keypoints=config.max_keypoints,
+                conf_thresh=config.detection_threshold,
+                device=config.device,
+                target_resolution=config.target_resolution,
+            )
+        elif config.extractor == 'xfeat':
+            self.extractor = XFeatExtractor(
+                max_keypoints=config.max_keypoints,
+                conf_thresh=config.detection_threshold,
+                device=config.device,
+                target_resolution=config.target_resolution,
+            )
+        else:
+            raise ValueError(f"Unknown extractor: {config.extractor}")
 
         if isinstance(matcher, MatcherBase):
             self.matcher = matcher
@@ -103,6 +113,12 @@ class VisualOdometry:
                 self.matcher = create_matcher(
                     matcher,
                     ratio=config.classic_ratio,
+                    device=config.device,
+                )
+            elif matcher == "xfeat":
+                self.matcher = create_matcher(
+                    matcher,
+                    min_cossim=config.xfeat_min_cossim,
                     device=config.device,
                 )
             else:

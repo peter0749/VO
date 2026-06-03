@@ -68,11 +68,13 @@ def get_mock_ground_truth(n_poses: int = 10) -> list[np.ndarray]:
 
 def run_slam_dnn_on_loader(
     loader,
+    extractor: str = 'superpoint',
     matcher: str = 'lightglue',
     max_keypoints: int = 2048,
     scale: float = 1.0,
     device: str = 'cpu',
     min_matches: int = 20,
+    target_resolution: int | None = None,
 ) -> list[np.ndarray]:
     """Run slam_dnn visual odometry on the loaded sequence.
 
@@ -99,13 +101,20 @@ def run_slam_dnn_on_loader(
     camera.K = K.copy()
     camera.K_inv = np.linalg.inv(K)
     
-    vo = VisualOdometry(
-        camera=camera,
+    from slam_dnn.config import VOConfig
+    config = VOConfig(
+        extractor=extractor,
         matcher=matcher,
         max_keypoints=max_keypoints,
         scale=scale,
         device=device,
         min_matches=min_matches,
+        target_resolution=target_resolution,
+    )
+    
+    vo = VisualOdometry(
+        camera=camera,
+        config=config,
     )
     
     print(f"Running slam_dnn VisualOdometry ({matcher} matcher)...")
@@ -543,10 +552,22 @@ def main():
         help="Baselines to run: minislam, pyslam-orb2, pyslam-sift, pyslam-superpoint, pyslam-xfeat, all, or none",
     )
     parser.add_argument(
+        "--extractor",
+        choices=["superpoint", "xfeat"],
+        default="superpoint",
+        help="Feature extractor to use for slam_dnn (default: superpoint)",
+    )
+    parser.add_argument(
         "--matcher",
-        choices=["lightglue", "classic"],
+        choices=["lightglue", "classic", "xfeat"],
         default="classic",
         help="Matcher to use for slam_dnn (default: classic for CPU speed)",
+    )
+    parser.add_argument(
+        "--target-resolution",
+        type=int,
+        default=None,
+        help="Resize image so max(H, W) is at most this value (default: None for original resolution)",
     )
     parser.add_argument(
         "--device",
@@ -627,7 +648,7 @@ def main():
             
             # 3. Run slam_dnn
             est_poses = run_slam_dnn_on_loader(
-                loader, matcher=args.matcher, max_keypoints=300, device=args.device, min_matches=8
+                loader, extractor=args.extractor, matcher=args.matcher, max_keypoints=300, device=args.device, min_matches=8, target_resolution=args.target_resolution
             )
             
             ours_report = compute_metrics_all(est_poses, gt_poses, label="Ours (slam_dnn)")
@@ -703,7 +724,7 @@ def main():
             
         # 3. Run slam_dnn
         est_poses = run_slam_dnn_on_loader(
-            loader, matcher=args.matcher, device=args.device
+            loader, extractor=args.extractor, matcher=args.matcher, device=args.device, target_resolution=args.target_resolution
         )
         
         ours_report = compute_metrics_all(est_poses, gt_poses, label="Ours (slam_dnn)")
