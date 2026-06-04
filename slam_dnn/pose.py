@@ -227,3 +227,31 @@ def estimate_essential_or_homography(
     t = np.zeros(3)
     inlier_mask = mask.ravel().astype(bool)
     return R, t, inlier_mask
+
+
+def triangulate_points(
+    P1: np.ndarray,
+    P2: np.ndarray,
+    kpn1: np.ndarray,
+    kpn2: np.ndarray,
+) -> np.ndarray:
+    """Triangulate 3D points from normalized keypoints in two frames.
+
+    Args:
+        P1: 3x4 projection matrix of first camera (typically [I|0]).
+        P2: 3x4 projection matrix of second camera (typically [R|t]).
+        kpn1: Normalized matched coordinates in first frame, shape (N, 2).
+        kpn2: Normalized matched coordinates in second frame, shape (N, 2).
+
+    Returns:
+        (N, 3) array of triangulated 3D points in the world/first camera frame.
+    """
+    pts4d = cv2.triangulatePoints(
+        P1.astype(np.float64),
+        P2.astype(np.float64),
+        kpn1.T.astype(np.float64),
+        kpn2.T.astype(np.float64),
+    )
+    pts_3d = (pts4d[:3] / pts4d[3]).T
+    return pts_3d
+

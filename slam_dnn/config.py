@@ -34,5 +34,20 @@ class VOConfig:
     use_motion_model: bool = True
     motion_model_alpha: float = 0.5   # velocity smoothing EMA factor
 
+    # Joint Bundle Adjustment (3D-2D Tracking Mode)
+    use_joint_ba: bool = False
+    ba_window_size: int = 5
+    min_inliers_pnp: int = 15
+
+    # Depth Prior (3D-2D Tracking Mode)
+    use_depth_prior: bool = False
+    depth_source: str = 'directory'       # 'directory' or 'model'
+    depth_directory: str = 'data/kitti/05/depth'
+    depth_scale_factor: float = 256.0     # Scale factor to convert pixel values to meters (e.g. val / 256.0)
+    depth_model_name: str = 'LiheYoung/depth-anything-small-hf'
+    depth_target_resolution: tuple[int, int] = (320, 192)
+    depth_scale_mode: str = 'median_ratio' # 'median_ratio' or 'fixed'
+
     # Speed Optimizations
     target_resolution: int | None = None  # if not None, image is resized so max(H, W) <= target_resolution
+

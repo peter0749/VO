@@ -75,6 +75,17 @@ def run_slam_dnn_on_loader(
     device: str = 'cpu',
     min_matches: int = 20,
     target_resolution: int | None = None,
+    use_joint_ba: bool = False,
+    ba_window_size: int = 5,
+    use_depth_prior: bool = False,
+    depth_source: str = 'directory',
+    depth_directory: str = 'data/kitti/05/depth',
+    depth_scale_factor: float = 256.0,
+    depth_model_name: str = 'LiheYoung/depth-anything-small-hf',
+    depth_scale_mode: str = 'median_ratio',
+    min_parallax: float = 8.0,
+    max_overlap: float = 0.85,
+    max_keyframe_interval: int = 10,
 ) -> list[np.ndarray]:
     """Run slam_dnn visual odometry on the loaded sequence.
 
@@ -85,6 +96,14 @@ def run_slam_dnn_on_loader(
         scale: Scaling factor for translation magnitude.
         device: 'cpu', 'cuda', or 'mps'.
         min_matches: Minimum matches required for pose estimation.
+        use_joint_ba: Enable 3D-2D joint Bundle Adjustment tracking mode.
+        ba_window_size: Number of keyframes in sliding window.
+        use_depth_prior: Enable 3D-2D depth-prior tracking mode.
+        depth_source: 'directory' or 'model'.
+        depth_directory: Path to pre-computed depth maps.
+        depth_scale_factor: Convert depth values to meters.
+        depth_model_name: Hugging Face repository ID.
+        depth_scale_mode: Method of scaling relative depth.
 
     Returns:
         List of 4x4 estimated poses.
@@ -110,6 +129,17 @@ def run_slam_dnn_on_loader(
         device=device,
         min_matches=min_matches,
         target_resolution=target_resolution,
+        use_joint_ba=use_joint_ba,
+        ba_window_size=ba_window_size,
+        use_depth_prior=use_depth_prior,
+        depth_source=depth_source,
+        depth_directory=depth_directory,
+        depth_scale_factor=depth_scale_factor,
+        depth_model_name=depth_model_name,
+        depth_scale_mode=depth_scale_mode,
+        min_parallax=min_parallax,
+        max_overlap=max_overlap,
+        max_keyframe_interval=max_keyframe_interval,
     )
     
     vo = VisualOdometry(
@@ -125,7 +155,32 @@ def run_slam_dnn_on_loader(
         vo.process_frame(frame['image'])
         
     elapsed = time.time() - t_start
-    print(f"slam_dnn processed {len(loader)} frames in {elapsed:.2f}s")
+    fps = len(loader) / elapsed if elapsed > 0 else 0.0
+    print(f"slam_dnn processed {len(loader)} frames in {elapsed:.2f}s ({fps:.2f} FPS)")
+    
+    # Timing and Statistics breakdown
+    stats = vo.get_stats()
+    timings = vo.get_timings()
+    total_tracked_time = timings.get("total", 0.0)
+    print(f"--- VO System Stats & Timings Breakdown ---")
+    print(f"Total Keyframes: {stats.get('keyframes', 0)}")
+    print(f"Successful PnP frames: {stats.get('successful', 0)}")
+    print(f"Pose-failed PnP frames: {stats.get('pose_failed', 0)}")
+    print(f"Tracking lost count: {stats.get('tracking_lost', 0)}")
+    print(f"Motion model fallbacks: {stats.get('motion_model_fallbacks', 0)}")
+    
+    if total_tracked_time > 0:
+        ext_time = timings.get("extraction", 0.0)
+        match_time = timings.get("matching", 0.0)
+        pnp_time = timings.get("pose_estimation", 0.0)
+        other_time = max(0.0, total_tracked_time - ext_time - match_time - pnp_time)
+        
+        print(f"Accumulated Processing Time: {total_tracked_time:.3f}s")
+        print(f"  - Keypoint Extraction: {ext_time:.3f}s ({ext_time/total_tracked_time*100.1:.1f}%)")
+        print(f"  - Keypoint Matching:   {match_time:.3f}s ({match_time/total_tracked_time*100.1:.1f}%)")
+        print(f"  - Pose Estimation PnP: {pnp_time:.3f}s ({pnp_time/total_tracked_time*100.1:.1f}%)")
+        print(f"  - Other (e.g. depth):  {other_time:.3f}s ({other_time/total_tracked_time*100.1:.1f}%)")
+    print(f"-------------------------------------------")
     
     return vo.get_trajectory().get_poses()
 
@@ -145,13 +200,17 @@ def compute_metrics_all(
     Returns:
         A unified report dictionary.
     """
+    # Convert camera-to-world (T_w_c) input poses to world-to-camera (T_c_w) for evaluate
+    est_poses_inv = [np.linalg.inv(T) for T in est_poses]
+    gt_poses_inv = [np.linalg.inv(T) for T in gt_poses]
+
     # 1. Compute using our eval.py
-    report = evaluate(est_poses, gt_poses, with_scale=True)
+    report = evaluate(est_poses_inv, gt_poses_inv, with_scale=True)
     
     n = report["num_frames"]
     aligned_est = report["aligned_poses"]
     aligned_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in aligned_est])
-    gt_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in gt_poses[:n]])
+    gt_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in gt_poses_inv[:n]])
     
     ape_values = compute_ape(aligned_centers, gt_centers).tolist()
     rte_values = compute_rte(aligned_centers, gt_centers).tolist()
@@ -180,7 +239,7 @@ def compute_metrics_all(
                 # Extract camera centers in world coordinates for aligned estimated and ground truth
                 aligned_est = report["aligned_poses"]
                 aligned_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in aligned_est])
-                gt_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in gt_poses[:n]])
+                gt_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in gt_poses_inv[:n]])
                 
                 # Build evo Trajectory3D objects (already aligned, so orientations can be identity)
                 timestamps = np.arange(n, dtype=np.float64)
@@ -519,6 +578,8 @@ def get_active_baselines(args) -> list[str]:
 
 def main():
     """CLI entry point."""
+    import logging
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     parser = argparse.ArgumentParser(
         description="Evaluation comparison pipeline for visual odometry"
     )
@@ -579,6 +640,70 @@ def main():
         type=str,
         default="eval/reports",
         help="Output directory for reports and plots",
+    )
+    parser.add_argument(
+        "--use-joint-ba",
+        action="store_true",
+        help="Enable 3D-2D Joint BA tracking mode for slam_dnn",
+    )
+    parser.add_argument(
+        "--ba-window-size",
+        type=int,
+        default=5,
+        help="Maximum keyframes in active Joint BA sliding window (default: 5)",
+    )
+    parser.add_argument(
+        "--use-depth-prior",
+        action="store_true",
+        help="Enable 3D-2D depth-prior tracking mode for slam_dnn",
+    )
+    parser.add_argument(
+        "--depth-source",
+        type=str,
+        default="directory",
+        help="Source of depth maps: 'directory' or 'model'",
+    )
+    parser.add_argument(
+        "--depth-directory",
+        type=str,
+        default="data/kitti/05/depth",
+        help="Directory containing pre-computed depth maps",
+    )
+    parser.add_argument(
+        "--depth-scale-factor",
+        type=float,
+        default=256.0,
+        help="Scale factor to convert depth map values to meters (default: 256.0)",
+    )
+    parser.add_argument(
+        "--depth-model-name",
+        type=str,
+        default="LiheYoung/depth-anything-small-hf",
+        help="Hugging Face repo name for depth estimation (default: LiheYoung/depth-anything-small-hf)",
+    )
+    parser.add_argument(
+        "--depth-scale-mode",
+        choices=["median_ratio", "fixed"],
+        default="median_ratio",
+        help="Scale alignment mode: 'median_ratio' (dynamic scale) or 'fixed' (multiply by depth-scale-factor)",
+    )
+    parser.add_argument(
+        "--min-parallax",
+        type=float,
+        default=8.0,
+        help="Minimum median parallax in pixels to trigger a keyframe (default: 8.0)",
+    )
+    parser.add_argument(
+        "--max-overlap",
+        type=float,
+        default=0.85,
+        help="Maximum overlap ratio before keyframe is forced (default: 0.85)",
+    )
+    parser.add_argument(
+        "--max-keyframe-interval",
+        type=int,
+        default=10,
+        help="Maximum consecutive frames before forcing a keyframe (default: 10)",
     )
     
     args = parser.parse_args()
@@ -648,7 +773,12 @@ def main():
             
             # 3. Run slam_dnn
             est_poses = run_slam_dnn_on_loader(
-                loader, extractor=args.extractor, matcher=args.matcher, max_keypoints=300, device=args.device, min_matches=8, target_resolution=args.target_resolution
+                loader, extractor=args.extractor, matcher=args.matcher, max_keypoints=300, device=args.device, min_matches=8, target_resolution=args.target_resolution,
+                use_joint_ba=args.use_joint_ba, ba_window_size=args.ba_window_size,
+                use_depth_prior=args.use_depth_prior, depth_source=args.depth_source,
+                depth_directory=args.depth_directory, depth_scale_factor=args.depth_scale_factor,
+                depth_model_name=args.depth_model_name, depth_scale_mode=args.depth_scale_mode,
+                min_parallax=args.min_parallax, max_overlap=args.max_overlap, max_keyframe_interval=args.max_keyframe_interval
             )
             
             ours_report = compute_metrics_all(est_poses, gt_poses, label="Ours (slam_dnn)")
@@ -688,7 +818,8 @@ def main():
                     if b_info["label"] == r["label"]:
                         baselines_aligned[name] = r["aligned_poses"]
                         
-            plot_trajectory_comparison(ours=aligned_ours, baselines_dict=baselines_aligned, gt=gt_poses, output_path=plot_path)
+            gt_poses_inv = [np.linalg.inv(T) for T in gt_poses]
+            plot_trajectory_comparison(ours=aligned_ours, baselines_dict=baselines_aligned, gt=gt_poses_inv, output_path=plot_path)
             
             error_plot_path = os.path.join(args.output_dir, "error_comparison.png")
             plot_errors_comparison(results, error_plot_path)
@@ -724,7 +855,12 @@ def main():
             
         # 3. Run slam_dnn
         est_poses = run_slam_dnn_on_loader(
-            loader, extractor=args.extractor, matcher=args.matcher, device=args.device, target_resolution=args.target_resolution
+            loader, extractor=args.extractor, matcher=args.matcher, device=args.device, target_resolution=args.target_resolution,
+            use_joint_ba=args.use_joint_ba, ba_window_size=args.ba_window_size,
+            use_depth_prior=args.use_depth_prior, depth_source=args.depth_source,
+            depth_directory=args.depth_directory, depth_scale_factor=args.depth_scale_factor,
+            depth_model_name=args.depth_model_name, depth_scale_mode=args.depth_scale_mode,
+            min_parallax=args.min_parallax, max_overlap=args.max_overlap, max_keyframe_interval=args.max_keyframe_interval
         )
         
         ours_report = compute_metrics_all(est_poses, gt_poses, label="Ours (slam_dnn)")
@@ -764,7 +900,8 @@ def main():
                 if b_info["label"] == r["label"]:
                     baselines_aligned[name] = r["aligned_poses"]
                     
-        plot_trajectory_comparison(ours=aligned_ours, baselines_dict=baselines_aligned, gt=gt_poses, output_path=plot_path)
+        gt_poses_inv = [np.linalg.inv(T) for T in gt_poses]
+        plot_trajectory_comparison(ours=aligned_ours, baselines_dict=baselines_aligned, gt=gt_poses_inv, output_path=plot_path)
         
         error_plot_path = os.path.join(args.output_dir, "error_comparison.png")
         plot_errors_comparison(results, error_plot_path)

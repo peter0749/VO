@@ -37,7 +37,7 @@ def test_mock_mode_in_process():
     with open(REPORT_PATH) as f:
         content = f.read()
     assert "Trajectory Comparison Report" in content
-    assert "Baseline" in content
+    assert "baseline" in content.lower()
     
     pngs = list(REPORTS_DIR.glob("*.png"))
     assert len(pngs) >= 1
