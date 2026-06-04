@@ -260,9 +260,59 @@ The trade-off is GPU dependency and the lack of a scale-space pyramid, but for p
 
 ---
 
+## 4. Monocular Scale Recovery & Depth Prior
+
+Monocular Visual Odometry suffers from inherent scale ambiguity—we can only estimate camera translation direction, not its absolute magnitude in meters. Over time, monocular tracking also suffers from scale drift. We compared two primary approaches to recover scale:
+
+### Monocular Depth Prior (Zero-Shot Neural Network)
+
+We utilize a pre-trained foundation model (**Depth Anything v2**) to estimate a relative depth map for each frame at runtime.
+
+**How it works:**
+- Run image inference at a low resolution (`320x192`) on Apple Silicon GPU (`mps`).
+- Initialize the system scale at Frame 0 using a base scale factor (e.g. `104.0` for KITTI 05).
+- **Keyframe-Only Inference**: Run depth network estimation *only* when a new keyframe is selected by the heuristics, completely bypassing inference for inter-frame tracking to preserve real-time speeds.
+- **Median Ratio Alignment**: Scale-align the predicted relative depth map dynamically against the existing 3D map points by computing the median ratio of inlier depths:
+$$s = \text{median}\left(\frac{d_{\text{true}}}{d_{\text{pred}}}\right)$$
+- Convert relative depth to metric depth and backproject keypoints to 3D to track the camera via algebraic 3D-2D RANSAC PnP.
+
+**Strengths:**
+- Does **not** require ground plane fitting or stereo calibration.
+- Zero-shot generalization works across varied outdoor and indoor scenes.
+- Keyframe-only inference minimizes computational overhead (runs at **23.1 FPS**).
+- Absolute pose error (APE RMSE: 1.87 m) directly outperforms traditional monocular baselines (minislam: 1.90 m).
+
+**Weaknesses:**
+- Requires neural network inference dependencies (Hugging Face `transformers`).
+- Relies on PyTorch GPU backends for real-time speed.
+
+### Ground Plane Fitting
+
+An alternative classical approach is to fit a ground plane using RANSAC on 3D points, assuming a constant camera height above the road.
+
+**How it works:**
+- Detect the ground plane in the camera frame.
+- Scale the translation so the estimated camera height matches the physical camera height (e.g., $1.65\text{m}$ for a car-mounted camera).
+
+**Strengths:**
+- Purely geometric; requires no neural networks or external model downloads.
+- Low computational complexity.
+
+**Weaknesses:**
+- Highly sensitive to pitch and roll rotation changes (causes scale oscillation).
+- Degenerates in non-flat or hilly environments, or when the ground is not visible (e.g., high grass, nearby cars).
+
+### Decision
+
+**We use a Monocular Depth Prior (Depth Anything v2)** combined with dynamic median-ratio scale calibration for monocular tracking.
+
+This choice provides a modern, robust, and general solution that handles camera rotation and arbitrary scene geometry. By running the neural network at a low resolution (`320x192`) on GPU (`mps`) and throttling execution purely to keyframes (averaging a 19% keyframe rate), the pipeline runs at **23+ FPS** on consumer macOS hardware. PnP inter-frame tracking executes in **<6 ms**, maintaining real-time tracking without sacrificing pose accuracy.
+
+---
+
 ## Conclusion
 
-This document justified three architectural decisions for our visual odometry teaching library:
+This document justified four architectural decisions for our visual odometry teaching library:
 
 1. **Matching Strategy**: LightGlue as default (88.9% precision on HPatches, robust across challenging scenes), with Classic matcher available as a lightweight fallback for debugging or CPU-only environments.
 
@@ -270,6 +320,8 @@ This document justified three architectural decisions for our visual odometry te
 
 3. **SuperPoint Architecture**: Use the LightGlue package's implementation (DeTone et al. 2018) for joint keypoint detection and descriptor extraction, providing a clean interface between feature extraction and matching.
 
-These choices balance accuracy, educational value, and practical complexity. LightGlue and SuperPoint work together in a unified PyTorch-based pipeline that students can trace end-to-end. The Essential Matrix provides the geometrically correct tool for our calibrated camera setup, while the fallback options (Classic matcher, Homography) give students opportunities to explore how the system behaves under different constraints.
+4. **Monocular Scale Recovery**: Depth Anything v2 neural prior with Apple Silicon MPS acceleration, combining keyframe-only inference for speed and median-ratio calibration to eliminate scale drift without road-plane assumptions.
+
+These choices balance accuracy, educational value, and practical complexity. LightGlue, SuperPoint, and Depth Anything work together in a unified PyTorch-based pipeline that students can trace end-to-end. The Essential Matrix and PnP solvers provide the geometrically correct tools for calibrated tracking, while the fallback options (Classic matcher, Homography, Stereo prior) give students opportunities to explore how the system behaves under different constraints.
 
 The result is a visual odometry library that works reliably on real-world video while remaining transparent enough for graduate students to understand and extend.

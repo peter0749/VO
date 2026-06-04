@@ -104,6 +104,27 @@ python -m slam_dnn \
 When ground truth is provided, the CLI generates an additional `evaluation_report.txt`
 with APE and RTE metrics computed after Umeyama alignment.
 
+### With Monocular Depth Prior (Depth Anything v2)
+
+To run visual odometry using real-time monocular depth estimation as a prior to resolve scale ambiguity and scale drift:
+
+```bash
+python eval/compare.py \
+    --mode full \
+    --dataset kitti05 \
+    --use-depth-prior \
+    --depth-source model \
+    --depth-model-name LiheYoung/depth-anything-small-hf \
+    --depth-scale-factor 104.0 \
+    --device mps \
+    --min-parallax 40.0 \
+    --max-overlap 0.30 \
+    --max-keyframe-interval 20 \
+    --skip-baseline
+```
+
+This command runs visual odometry using the zero-shot **Depth Anything v2 Small** foundation model. It targets a low model resolution (`320x192`) on Apple Silicon GPU (`mps` device) and employs **Keyframe-Only Inference** (restricting forward passes purely to keyframes based on tuned parallax/overlap thresholds) to run real-time tracking (23+ FPS).
+
 ## Python API
 
 ### Basic Usage: Visual Odometry in Seven Lines
