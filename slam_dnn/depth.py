@@ -84,6 +84,7 @@ class DepthAnythingEstimator:
         from transformers import AutoImageProcessor, AutoModelForDepthEstimation
 
         self.target_resolution = target_resolution
+        self.is_metric = "metric" in model_name.lower()
 
         if device == "auto":
             if torch.backends.mps.is_available():
@@ -101,13 +102,13 @@ class DepthAnythingEstimator:
         self.model.eval()
 
     def estimate_depth(self, image: np.ndarray) -> np.ndarray:
-        """Estimate relative metric depth from a single image.
+        """Estimate metric depth from a single image.
 
         Args:
             image: Input frame as a numpy array.
 
         Returns:
-            np.ndarray: Predicted depth map in meters (up to relative scale).
+            np.ndarray: Predicted depth map in meters.
         """
         import torch
 
@@ -130,15 +131,19 @@ class DepthAnythingEstimator:
 
         with torch.no_grad():
             outputs = self.model(**inputs)
-            # Output is disparity-like (larger values = closer)
-            disparity = outputs.predicted_depth.squeeze().cpu().numpy()
+            # Output is disparity-like for relative models, direct depth for metric models
+            pred_val = outputs.predicted_depth.squeeze().cpu().numpy()
 
         # Scale back to original resolution
-        disparity_resized = cv2.resize(disparity, (w_orig, h_orig), interpolation=cv2.INTER_LINEAR)
+        pred_resized = cv2.resize(pred_val, (w_orig, h_orig), interpolation=cv2.INTER_LINEAR)
 
-        # Convert disparity to depth: depth = 1.0 / (disparity + epsilon)
-        # Avoid division by zero
-        depth = 1.0 / (np.maximum(disparity_resized, 0.0) + 1e-6)
+        if self.is_metric:
+            depth = np.maximum(pred_resized, 0.0)
+        else:
+            # Convert disparity to depth: depth = 1.0 / (disparity + epsilon)
+            # Avoid division by zero
+            depth = 1.0 / (np.maximum(pred_resized, 0.0) + 1e-6)
 
         return depth.astype(np.float32)
+
 
