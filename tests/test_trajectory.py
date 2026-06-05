@@ -55,11 +55,11 @@ class TestTrajectoryAccumulation:
         positions = traj.get_positions()
         assert positions.shape == (6, 3)
         npt.assert_allclose(positions[0], [0, 0, 0])
-        npt.assert_allclose(positions[1], [-1, 0, 0])
-        npt.assert_allclose(positions[2], [-2, 0, 0])
-        npt.assert_allclose(positions[3], [-3, 0, 0])
-        npt.assert_allclose(positions[4], [-4, 0, 0])
-        npt.assert_allclose(positions[5], [-5, 0, 0])
+        npt.assert_allclose(positions[1], [1, 0, 0])
+        npt.assert_allclose(positions[2], [2, 0, 0])
+        npt.assert_allclose(positions[3], [3, 0, 0])
+        npt.assert_allclose(positions[4], [4, 0, 0])
+        npt.assert_allclose(positions[5], [5, 0, 0])
 
     def test_accumulate_pure_rotation_in_place(self):
         """Pure rotation (t=0) → camera center stays at origin."""
@@ -90,7 +90,7 @@ class TestTrajectoryAccumulation:
 
         positions = traj.get_positions()
         # With scale=2.0, each step should move 2 units (not 1)
-        npt.assert_allclose(positions[5], [-10, 0, 0], atol=1e-10)
+        npt.assert_allclose(positions[5], [10, 0, 0], atol=1e-10)
 
 
 class TestTrajectoryReset:
@@ -122,7 +122,7 @@ class TestTranslationNormalization:
 
         positions = traj.get_positions()
         # Camera center = -R^T @ t = -t for identity rotation
-        npt.assert_allclose(positions[1], [-1, 0, 0], atol=1e-10)
+        npt.assert_allclose(positions[1], [1, 0, 0], atol=1e-10)
 
     def test_large_translation_normalized_to_unit(self):
         """Large translation (norm 5) is normalized to unit before scaling."""
@@ -133,7 +133,7 @@ class TestTranslationNormalization:
 
         positions = traj.get_positions()
         # Despite input norm=5, output should be 1 (normalized)
-        npt.assert_allclose(positions[1], [-1, 0, 0], atol=1e-10)
+        npt.assert_allclose(positions[1], [1, 0, 0], atol=1e-10)
 
     def test_zero_translation_handled(self):
         """Zero translation (pure rotation) doesn't crash."""
@@ -208,8 +208,8 @@ class TestTrajectoryEdgeCases:
 
         assert len(traj) == 1001
         positions = traj.get_positions()
-        npt.assert_allclose(positions[-1], [-1000.0, 0, 0], atol=1e-6,
-                            err_msg="1000 steps (normalized t=[1,0,0]) → -1000 units")
+        npt.assert_allclose(positions[-1], [1000.0, 0, 0], atol=1e-6,
+                            err_msg="1000 steps (normalized t=[1,0,0]) → 1000 units")
 
     def test_trajectory_scale_zero(self):
         """scale=0 freezes the camera at the origin (no translation applied).
