@@ -814,8 +814,7 @@ def main():
                     if b_info["label"] == r["label"]:
                         baselines_aligned[name] = r["aligned_poses"]
                         
-            gt_poses_inv = [np.linalg.inv(T) for T in gt_poses]
-            plot_trajectory_comparison(ours=aligned_ours, baselines_dict=baselines_aligned, gt=gt_poses_inv, output_path=plot_path)
+            plot_trajectory_comparison(ours=aligned_ours, baselines_dict=baselines_aligned, gt=gt_poses, output_path=plot_path)
             
             error_plot_path = os.path.join(args.output_dir, "error_comparison.png")
             plot_errors_comparison(results, error_plot_path)
@@ -896,8 +895,7 @@ def main():
                 if b_info["label"] == r["label"]:
                     baselines_aligned[name] = r["aligned_poses"]
                     
-        gt_poses_inv = [np.linalg.inv(T) for T in gt_poses]
-        plot_trajectory_comparison(ours=aligned_ours, baselines_dict=baselines_aligned, gt=gt_poses_inv, output_path=plot_path)
+        plot_trajectory_comparison(ours=aligned_ours, baselines_dict=baselines_aligned, gt=gt_poses, output_path=plot_path)
         
         error_plot_path = os.path.join(args.output_dir, "error_comparison.png")
         plot_errors_comparison(results, error_plot_path)
