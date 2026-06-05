@@ -829,7 +829,7 @@ def main():
         
         # 1. Resolve dataset path
         if args.dataset == "kitti05":
-            data_path = os.path.join("data", "kitti", "05")
+            data_path = os.path.join("data", "kitti05")
         else:
             data_path = os.path.join("data", "parking")
             
