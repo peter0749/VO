@@ -85,6 +85,8 @@ def download_with_urllib(url: str, dest: Path) -> bool:
             # Partial content - server supports resume
             mode = "ab"
             print(f"  Resuming from {existing_size / (1024**2):.1f} MB")
+            if total_size:
+                total_size = existing_size + int(total_size)
         elif response.status == 200:
             # Full download - server doesn't support Range
             mode = "wb"
@@ -95,8 +97,6 @@ def download_with_urllib(url: str, dest: Path) -> bool:
             return False
 
         downloaded = existing_size
-        if total_size:
-            total_size += 0  # already set
 
         with open(dest, mode) as f:
             while True:

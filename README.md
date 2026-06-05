@@ -191,6 +191,9 @@ Umeyama (Sim(3) least-squares), then computes Absolute Pose Error and Relative
 Trajectory Error. The `with_scale=True` flag corrects the monocular scale
 ambiguity during alignment.
 
+> [!NOTE]
+> **Camera Pose Convention**: All poses in `slam_dnn` (including the accumulator trajectory and evaluation inputs/outputs) follow the **Camera-to-World (C2W)** convention, where the translation part $T[:3, 3]$ represents the camera position in the world coordinate frame directly.
+
 ### Component-Level Usage
 
 If you need fine-grained control over the pipeline stages, use the components

@@ -238,23 +238,10 @@ class TrajectoryAccumulator:
     def get_positions(self) -> np.ndarray:
         """Return an (N, 3) array of camera center positions in world frame.
 
-        The camera center for pose T = [[R, t], [0, 1]] is:
-            C_world = -R^T @ t
-
-        This is the physical position of the camera origin in the world
-        coordinate frame.
-
         Returns:
             Array where row i is the 3D camera center at frame i.
         """
-        positions = []
-        for T in self.poses:
-            R = T[:3, :3]
-            t = T[:3, 3]
-            # Camera center in world frame: C_world = -R^T @ t
-            c_world = -R.T @ t
-            positions.append(c_world)
-        return np.array(positions, dtype=np.float64)
+        return np.array([T[:3, 3] for T in self.poses], dtype=np.float64)
 
     def reset(self) -> None:
         """Reset the trajectory to its initial state.

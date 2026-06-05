@@ -200,17 +200,13 @@ def compute_metrics_all(
     Returns:
         A unified report dictionary.
     """
-    # Convert camera-to-world (T_w_c) input poses to world-to-camera (T_c_w) for evaluate
-    est_poses_inv = [np.linalg.inv(T) for T in est_poses]
-    gt_poses_inv = [np.linalg.inv(T) for T in gt_poses]
-
     # 1. Compute using our eval.py
-    report = evaluate(est_poses_inv, gt_poses_inv, with_scale=True)
+    report = evaluate(est_poses, gt_poses, with_scale=True)
     
     n = report["num_frames"]
     aligned_est = report["aligned_poses"]
-    aligned_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in aligned_est])
-    gt_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in gt_poses_inv[:n]])
+    aligned_centers = np.array([T[:3, 3] for T in aligned_est])
+    gt_centers = np.array([T[:3, 3] for T in gt_poses[:n]])
     
     ape_values = compute_ape(aligned_centers, gt_centers).tolist()
     rte_values = compute_rte(aligned_centers, gt_centers).tolist()
@@ -238,8 +234,8 @@ def compute_metrics_all(
             try:
                 # Extract camera centers in world coordinates for aligned estimated and ground truth
                 aligned_est = report["aligned_poses"]
-                aligned_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in aligned_est])
-                gt_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in gt_poses_inv[:n]])
+                aligned_centers = np.array([T[:3, 3] for T in aligned_est])
+                gt_centers = np.array([T[:3, 3] for T in gt_poses[:n]])
                 
                 # Build evo Trajectory3D objects (already aligned, so orientations can be identity)
                 timestamps = np.arange(n, dtype=np.float64)
@@ -403,8 +399,8 @@ def plot_trajectory_comparison(
     # 1. XY Top-down plot
     fig_xy, ax_xy = plt.subplots(figsize=(10, 8))
     
-    gt_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in gt])
-    ours_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in ours])
+    gt_centers = np.array([T[:3, 3] for T in gt])
+    ours_centers = np.array([T[:3, 3] for T in ours])
     
     if len(gt_centers) > 0:
         ax_xy.plot(gt_centers[:, 0], gt_centers[:, 2], 'g--', label='Ground Truth', linewidth=2)
@@ -416,7 +412,7 @@ def plot_trajectory_comparison(
         
     for name, poses in baselines_dict.items():
         if poses is not None and len(poses) > 0:
-            b_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in poses])
+            b_centers = np.array([T[:3, 3] for T in poses])
             color = BASELINES[name]["color"]
             label = BASELINES[name]["label"]
             ax_xy.plot(b_centers[:, 0], b_centers[:, 2], color=color, linestyle='-', label=label, linewidth=2, alpha=0.8)
@@ -442,7 +438,7 @@ def plot_trajectory_comparison(
         
     for name, poses in baselines_dict.items():
         if poses is not None and len(poses) > 0:
-            b_centers = np.array([-T[:3, :3].T @ T[:3, 3] for T in poses])
+            b_centers = np.array([T[:3, 3] for T in poses])
             color = BASELINES[name]["color"]
             label = BASELINES[name]["label"]
             ax_xz.plot(b_centers[:, 0], b_centers[:, 1], color=color, linestyle='-', label=label, linewidth=2, alpha=0.8)

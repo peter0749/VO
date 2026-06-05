@@ -48,26 +48,13 @@ def _poses_to_positions(poses) -> np.ndarray:
 
     # (N, 4, 4) SE3 matrices
     if poses_arr.ndim == 3 and poses_arr.shape[1:] == (4, 4):
-        positions = []
-        for T in poses_arr:
-            R = T[:3, :3]
-            t = T[:3, 3]
-            c_world = -R.T @ t
-            positions.append(c_world)
-        return np.array(positions, dtype=np.float64)
+        return poses_arr[:, :3, 3]
 
     # List of 4x4 matrices (heterogeneous input)
     if isinstance(poses, list) and len(poses) > 0:
         first = np.asarray(poses[0])
         if first.shape == (4, 4):
-            positions = []
-            for T in poses:
-                T = np.asarray(T, dtype=np.float64)
-                R = T[:3, :3]
-                t = T[:3, 3]
-                c_world = -R.T @ t
-                positions.append(c_world)
-            return np.array(positions, dtype=np.float64)
+            return np.array([np.asarray(T, dtype=np.float64)[:3, 3] for T in poses], dtype=np.float64)
         elif first.shape == (3,):
             return np.array(poses, dtype=np.float64)
 

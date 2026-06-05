@@ -242,10 +242,10 @@ class TestEvaluate:
         # est_center = (1/s) * R^T @ (gt_center − t)
         est_poses: list[np.ndarray] = []
         for T_gt in gt_poses:
-            C_gt = -T_gt[:3, :3].T @ T_gt[:3, 3]
+            C_gt = T_gt[:3, 3]
             C_est = (1.0 / s_true) * R_true.T @ (C_gt - t_true)
             T_est = np.eye(4)
-            T_est[:3, 3] = -C_est  # center = −I^T @ t_est ⟹ t_est = −center
+            T_est[:3, 3] = C_est
             est_poses.append(T_est)
 
         result = evaluate(est_poses, gt_poses, with_scale=True)

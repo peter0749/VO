@@ -19,23 +19,21 @@ import numpy as np
 # ---------------------------------------------------------------------------
 
 def _get_camera_center(T: np.ndarray) -> np.ndarray:
-    """Camera center in world frame from a world-to-camera extrinsic matrix.
+    """Camera center in world frame from a camera-to-world extrinsic matrix.
 
-    For T = [[R, t], [0, 1]] (world → camera), the camera centre C in world
-    coordinates satisfies R C + t = 0 ⟹ C = −Rᵀ t.
+    For T = [[R, C], [0, 1]] (camera → world), the camera centre C in world
+    coordinates is simply T[:3, 3].
 
     Parameters
     ----------
     T : array of shape (4, 4)
-        World-to-camera SE(3) matrix.
+        Camera-to-world SE(3) matrix.
 
     Returns
     -------
     C : array of shape (3,)
     """
-    R = T[:3, :3]
-    t = T[:3, 3]
-    return -R.T @ t
+    return T[:3, 3]
 
 
 # ---------------------------------------------------------------------------
@@ -144,10 +142,9 @@ def align_trajectories(
     Parameters
     ----------
     est_poses : list of (4, 4) arrays
-        Estimated camera-to-world or world-to-camera poses (consistent
-        convention required within the list).
+        Estimated camera-to-world poses.
     gt_poses : list of (4, 4) arrays
-        Ground-truth poses (same convention as *est_poses*).
+        Ground-truth poses.
     with_scale : bool, default True
         Passed through to :func:`align_umeyama`.
 
@@ -176,16 +173,14 @@ def align_trajectories(
     aligned: list[np.ndarray] = []
     for T, C_old in zip(est_poses, est_centers):
         R_wc = T[:3, :3]
-        # camera-to-world rotation
-        R_cw = R_wc.T
         # Aligned camera-to-world rotation and centre
-        R_cw_new = R @ R_cw
+        R_wc_new = R @ R_wc
         C_new = scale * R @ C_old + t
-        # Build aligned camera-to-world, then invert to world-to-camera
-        T_cw_new = np.eye(4, dtype=np.float64)
-        T_cw_new[:3, :3] = R_cw_new
-        T_cw_new[:3, 3] = C_new
-        aligned.append(np.linalg.inv(T_cw_new))
+        # Build aligned camera-to-world pose
+        T_wc_new = np.eye(4, dtype=np.float64)
+        T_wc_new[:3, :3] = R_wc_new
+        T_wc_new[:3, 3] = C_new
+        aligned.append(T_wc_new)
 
     return aligned
 
@@ -305,9 +300,9 @@ def evaluate(
     Parameters
     ----------
     estimated : list of (4, 4) arrays
-        Estimated poses (world-to-camera convention).
+        Estimated poses (camera-to-world convention).
     ground_truth : list of (4, 4) arrays
-        Ground-truth poses.
+        Ground-truth poses (camera-to-world convention).
     with_scale : bool, default True
         Whether to allow scale correction during alignment.
 
