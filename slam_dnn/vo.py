@@ -172,6 +172,19 @@ class VisualOdometry:
             self.depth_loader = None
             self.depth_estimator = None
 
+        # Scale calibration states
+        self._calib_scale_factor = 1.0
+        self._calib_ratios = []
+        self._calib_finished = False
+        self._calib_frames = config.depth_calib_frames
+        
+        # Ground plane camera height
+        self._camera_height = config.camera_height
+        
+        # Sliding window history of scale factors
+        self._sliding_window_scales = []
+        self._sliding_window_size = config.depth_sliding_window_size
+
         self._per_frame_stats: list[dict] = []
         self._stats = {
             "total": 0,
@@ -371,7 +384,40 @@ class VisualOdometry:
                 depth = self.depth_loader.get_depth(0)
             elif self.config.depth_source == 'model':
                 depth = self.depth_estimator.estimate_depth(image)
-                depth = depth * self.config.depth_scale_factor
+                
+                # Default scale factor
+                s = self.config.depth_scale_factor
+                
+                if self.config.depth_scale_mode in ['ground_plane', 'calibrate']:
+                    # Try to fit ground plane to the first frame to establish a metric scale anchor
+                    K_inv = np.linalg.inv(self.camera.K)
+                    kps = feats["keypoints"]
+                    N_kps = len(kps)
+                    if N_kps > 0:
+                        u_kps = kps[:, 0]
+                        v_kps = kps[:, 1]
+                        u_idx_kps = np.clip(np.round(u_kps).astype(np.int32), 0, depth.shape[1] - 1)
+                        v_idx_kps = np.clip(np.round(v_kps).astype(np.int32), 0, depth.shape[0] - 1)
+                        d_kps = depth[v_idx_kps, u_idx_kps]
+                        
+                        valid_mask = (d_kps > 0.1) & (d_kps < 150.0)
+                        kps_hom = np.hstack([kps, np.ones((N_kps, 1))])
+                        p_c = (K_inv @ kps_hom.T).T
+                        pts_3d_c = p_c * d_kps.reshape(-1, 1)
+                        
+                        candidates = pts_3d_c[valid_mask]
+                        candidates_mask = (kps[valid_mask, 1] > image.shape[0] * 0.5) & (candidates[:, 1] > 0.1) & (candidates[:, 2] < 40.0)
+                        plane_pts = candidates[candidates_mask]
+                        
+                        plane_fit = fit_ground_plane_ransac(plane_pts, camera_height_prior=self._camera_height)
+                        if plane_fit is not None:
+                            _, d_plane, _ = plane_fit
+                            s = self._camera_height / abs(d_plane)
+                            logger.info(f"Frame 0: Calibrated initial scale factor from ground plane = {s:.4f} (height = {abs(d_plane):.2f}m)")
+                            if self.config.depth_scale_mode == 'calibrate':
+                                self._calib_ratios.append(s)
+                
+                depth = depth * s
             else:
                 raise ValueError(f"Unknown depth_source: {self.config.depth_source}")
 
@@ -586,29 +632,169 @@ class VisualOdometry:
                 depth = self.depth_loader.get_depth(self._frame_idx)
             elif self.config.depth_source == 'model':
                 depth = self.depth_estimator.estimate_depth(image)
-                if self.config.depth_scale_mode == 'median_ratio' and len(inliers) > 0:
-                    ratios = []
-                    for idx in inliers.flatten():
-                        j = match_indices_pnp[idx]
-                        idx_kf = match_result["indices"][j, 0]
-                        map_pt_idx = self._keyframe_kp_to_3d[-2][idx_kf]
-                        if map_pt_idx is not None:
-                            pt_w = self._map_points_3d[map_pt_idx]
-                            pt_c = R_curr @ pt_w + t_curr
-                            d_true = pt_c[2]
-                            uv = match_result["points1"][j]
-                            u_px = np.clip(np.round(uv[0]).astype(np.int32), 0, depth.shape[1] - 1)
-                            v_px = np.clip(np.round(uv[1]).astype(np.int32), 0, depth.shape[0] - 1)
-                            d_pred = depth[v_px, u_px]
-                            if d_pred > 0.01 and d_true > 0.1:
-                                ratios.append(d_true / d_pred)
-                    if len(ratios) >= 5:
-                        s = np.median(ratios)
-                        logger.info(f"Frame {self._frame_idx}: Calibrated monocular depth scale = {s:.4f}")
+                
+                # Default scale factor
+                s = self.config.depth_scale_factor
+                
+                if self.config.depth_scale_mode == 'median_ratio':
+                    if len(inliers) > 0:
+                        ratios = []
+                        for idx in inliers.flatten():
+                            j = match_indices_pnp[idx]
+                            idx_kf = match_result["indices"][j, 0]
+                            map_pt_idx = self._keyframe_kp_to_3d[-2][idx_kf]
+                            if map_pt_idx is not None:
+                                pt_w = self._map_points_3d[map_pt_idx]
+                                pt_c = R_curr @ pt_w + t_curr
+                                d_true = pt_c[2]
+                                uv = match_result["points1"][j]
+                                u_px = np.clip(np.round(uv[0]).astype(np.int32), 0, depth.shape[1] - 1)
+                                v_px = np.clip(np.round(uv[1]).astype(np.int32), 0, depth.shape[0] - 1)
+                                d_pred = depth[v_px, u_px]
+                                if d_pred > 0.01 and d_true > 0.1:
+                                    ratios.append(d_true / d_pred)
+                        if len(ratios) >= 5:
+                            s = np.median(ratios)
+                            logger.info(f"Frame {self._frame_idx}: Calibrated monocular depth scale = {s:.4f}")
+                
+                elif self.config.depth_scale_mode == 'calibrate':
+                    if not self._calib_finished:
+                        # Collect ratios using ground plane or median ratio to calibrate
+                        K_inv = np.linalg.inv(self.camera.K)
+                        kps = feats["keypoints"]
+                        N_kps = len(kps)
+                        s_frame = None
+                        if N_kps > 0:
+                            u_kps = kps[:, 0]
+                            v_kps = kps[:, 1]
+                            u_idx_kps = np.clip(np.round(u_kps).astype(np.int32), 0, depth.shape[1] - 1)
+                            v_idx_kps = np.clip(np.round(v_kps).astype(np.int32), 0, depth.shape[0] - 1)
+                            d_kps = depth[v_idx_kps, u_idx_kps]
+                            
+                            valid_mask = (d_kps > 0.1) & (d_kps < 150.0)
+                            kps_hom = np.hstack([kps, np.ones((N_kps, 1))])
+                            p_c = (K_inv @ kps_hom.T).T
+                            pts_3d_c = p_c * d_kps.reshape(-1, 1)
+                            
+                            # Fit ground plane
+                            candidates = pts_3d_c[valid_mask]
+                            candidates_mask = (kps[valid_mask, 1] > image.shape[0] * 0.5) & (candidates[:, 1] > 0.1) & (candidates[:, 2] < 40.0)
+                            plane_pts = candidates[candidates_mask]
+                            
+                            plane_fit = fit_ground_plane_ransac(plane_pts, camera_height_prior=self._camera_height)
+                            if plane_fit is not None:
+                                _, d_plane, _ = plane_fit
+                                s_frame = self._camera_height / abs(d_plane)
+                                self._calib_ratios.append(s_frame)
+                                logger.info(f"Frame {self._frame_idx} (Calibrating): Ground plane scale = {s_frame:.4f} (height = {abs(d_plane):.2f}m)")
+                            else:
+                                # Fallback to median ratio of matched features
+                                if len(inliers) >= 5:
+                                    ratios = []
+                                    for idx in inliers.flatten():
+                                        j = match_indices_pnp[idx]
+                                        idx_kf = match_result["indices"][j, 0]
+                                        map_pt_idx = self._keyframe_kp_to_3d[-2][idx_kf]
+                                        if map_pt_idx is not None:
+                                            pt_w = self._map_points_3d[map_pt_idx]
+                                            pt_c = R_curr @ pt_w + t_curr
+                                            d_true = pt_c[2]
+                                            uv = match_result["points1"][j]
+                                            u_px = np.clip(np.round(uv[0]).astype(np.int32), 0, depth.shape[1] - 1)
+                                            v_px = np.clip(np.round(uv[1]).astype(np.int32), 0, depth.shape[0] - 1)
+                                            d_pred = depth[v_px, u_px]
+                                            if d_pred > 0.01 and d_true > 0.1:
+                                                ratios.append(d_true / d_pred)
+                                    if len(ratios) >= 5:
+                                        s_frame = np.median(ratios)
+                                        self._calib_ratios.append(s_frame)
+                                        logger.info(f"Frame {self._frame_idx} (Calibrating): Tracker median ratio = {s_frame:.4f}")
+                        
+                        if len(self._calib_ratios) >= self._calib_frames or self._frame_idx >= self._calib_frames:
+                            if len(self._calib_ratios) > 0:
+                                self._calib_scale_factor = np.median(self._calib_ratios)
+                            else:
+                                self._calib_scale_factor = self.config.depth_scale_factor
+                            self._calib_finished = True
+                            logger.info(f"=== SCALE CALIBRATION FINISHED ===")
+                            logger.info(f"Locked Scale Factor = {self._calib_scale_factor:.4f} (from {len(self._calib_ratios)} samples)")
+                            logger.info(f"===================================")
+                        
+                        # During calibration, use the latest valid calibration sample or default
+                        if len(self._calib_ratios) > 0:
+                            s = self._calib_ratios[-1]
+                        else:
+                            s = self.config.depth_scale_factor
+                    else:
+                        s = self._calib_scale_factor
+                
+                elif self.config.depth_scale_mode == 'ground_plane':
+                    K_inv = np.linalg.inv(self.camera.K)
+                    kps = feats["keypoints"]
+                    N_kps = len(kps)
+                    s_fit = None
+                    if N_kps > 0:
+                        u_kps = kps[:, 0]
+                        v_kps = kps[:, 1]
+                        u_idx_kps = np.clip(np.round(u_kps).astype(np.int32), 0, depth.shape[1] - 1)
+                        v_idx_kps = np.clip(np.round(v_kps).astype(np.int32), 0, depth.shape[0] - 1)
+                        d_kps = depth[v_idx_kps, u_idx_kps]
+                        
+                        valid_mask = (d_kps > 0.1) & (d_kps < 150.0)
+                        kps_hom = np.hstack([kps, np.ones((N_kps, 1))])
+                        p_c = (K_inv @ kps_hom.T).T
+                        pts_3d_c = p_c * d_kps.reshape(-1, 1)
+                        
+                        candidates = pts_3d_c[valid_mask]
+                        candidates_mask = (kps[valid_mask, 1] > image.shape[0] * 0.5) & (candidates[:, 1] > 0.1) & (candidates[:, 2] < 40.0)
+                        plane_pts = candidates[candidates_mask]
+                        
+                        plane_fit = fit_ground_plane_ransac(plane_pts, camera_height_prior=self._camera_height)
+                        if plane_fit is not None:
+                            _, d_plane, _ = plane_fit
+                            s_fit = self._camera_height / abs(d_plane)
+                            logger.info(f"Frame {self._frame_idx}: Ground plane scale factor = {s_fit:.4f} (height = {abs(d_plane):.2f}m)")
+                    
+                    if s_fit is not None:
+                        s = s_fit
                     else:
                         s = self.config.depth_scale_factor
+                
+                elif self.config.depth_scale_mode == 'sliding_window':
+                    s_frame = self.config.depth_scale_factor
+                    if len(inliers) >= 5:
+                        ratios = []
+                        for idx in inliers.flatten():
+                            j = match_indices_pnp[idx]
+                            idx_kf = match_result["indices"][j, 0]
+                            map_pt_idx = self._keyframe_kp_to_3d[-2][idx_kf]
+                            if map_pt_idx is not None:
+                                pt_w = self._map_points_3d[map_pt_idx]
+                                pt_c = R_curr @ pt_w + t_curr
+                                d_true = pt_c[2]
+                                uv = match_result["points1"][j]
+                                u_px = np.clip(np.round(uv[0]).astype(np.int32), 0, depth.shape[1] - 1)
+                                v_px = np.clip(np.round(uv[1]).astype(np.int32), 0, depth.shape[0] - 1)
+                                d_pred = depth[v_px, u_px]
+                                if d_pred > 0.01 and d_true > 0.1:
+                                    ratios.append(d_true / d_pred)
+                        if len(ratios) >= 5:
+                            s_frame = np.median(ratios)
+                            
+                    self._sliding_window_scales.append(s_frame)
+                    if len(self._sliding_window_scales) > self._sliding_window_size:
+                        self._sliding_window_scales.pop(0)
+                    
+                    # Compute rolling median scale
+                    s_sliding = np.median(self._sliding_window_scales)
+                    
+                    # Regularize rolling scale towards global prior scale (blend 80/20)
+                    s = 0.8 * s_sliding + 0.2 * self.config.depth_scale_factor
+                    logger.info(f"Frame {self._frame_idx}: Sliding-window scale = {s:.4f} (raw_frame = {s_frame:.4f})")
+                
                 else:
                     s = self.config.depth_scale_factor
+                
                 depth = depth * s
             else:
                 raise ValueError(f"Unknown depth_source: {self.config.depth_source}")
@@ -642,6 +828,61 @@ class VisualOdometry:
 
                 if len(new_pts_list) > 0:
                     self._map_points_3d = np.vstack([self._map_points_3d, np.array(new_pts_list)])
+
+            if self.config.use_joint_ba:
+                W = min(self.config.ba_window_size, len(self._keyframe_poses))
+                window_poses = self._keyframe_poses[-W:]
+                
+                pt_observation_counts = {}
+                for global_kf_idx in range(len(self._keyframe_poses) - W, len(self._keyframe_poses)):
+                    for pt_idx in self._keyframe_kp_to_3d[global_kf_idx]:
+                        if pt_idx is not None:
+                            pt_observation_counts[pt_idx] = pt_observation_counts.get(pt_idx, 0) + 1
+                
+                sorted_pts = sorted(pt_observation_counts.keys(), key=lambda x: pt_observation_counts[x], reverse=True)
+                observed_global_pts = sorted_pts[:100]
+                
+                if len(observed_global_pts) > 0:
+                    global_to_local_pt = {pt_idx: i for i, pt_idx in enumerate(observed_global_pts)}
+                    window_pts_3d = self._map_points_3d[observed_global_pts]
+                    
+                    observations = []
+                    for local_c_idx, global_kf_idx in enumerate(range(len(self._keyframe_poses) - W, len(self._keyframe_poses))):
+                        kf_feats = self._keyframe_feats[global_kf_idx]
+                        for kp_idx, pt_idx in enumerate(self._keyframe_kp_to_3d[global_kf_idx]):
+                            if pt_idx is not None and pt_idx in global_to_local_pt:
+                                observations.append({
+                                    "cam_idx": local_c_idx,
+                                    "pt_idx": global_to_local_pt[pt_idx],
+                                    "uv": kf_feats["keypoints"][kp_idx]
+                                })
+                                
+                    opt_poses, opt_pts_3d = self.local_ba.optimize(
+                        window_poses, window_pts_3d, observations, self.camera.K, fix_first_two=True
+                    )
+                    
+                    for local_c_idx, global_kf_idx in enumerate(range(len(self._keyframe_poses) - W, len(self._keyframe_poses))):
+                        self._keyframe_poses[global_kf_idx] = opt_poses[local_c_idx]
+                        
+                    self._map_points_3d[observed_global_pts] = opt_pts_3d
+                    
+                    # Compute optimized relative pose relative to the optimized previous keyframe
+                    if len(self._keyframe_poses) >= 2:
+                        T_kf_w = self._keyframe_poses[-2]
+                        R_kf = T_kf_w[:3, :3]
+                        t_kf = T_kf_w[:3, 3]
+                        T_kf_w_inv = np.eye(4)
+                        T_kf_w_inv[:3, :3] = R_kf.T
+                        T_kf_w_inv[:3, 3] = -R_kf.T @ t_kf
+
+                        T_curr_w = self._keyframe_poses[-1]
+                        T_curr_kf = T_curr_w @ T_kf_w_inv
+                        R_rel = T_curr_kf[:3, :3]
+                        t_rel = T_curr_kf[:3, 3]
+                        
+                        # Sync trajectory accumulator's keyframe base to the optimized previous keyframe
+                        self.trajectory._kf_R = T_kf_w[:3, :3].copy()
+                        self.trajectory._kf_t = T_kf_w[:3, 3].copy()
 
             self._prev_feats = feats
             self._stats["keyframes"] += 1
@@ -1069,3 +1310,102 @@ class VisualOdometry:
             "pose_estimation": 0.0,
             "total": 0.0,
         }
+
+
+def fit_ground_plane_ransac(
+    pts_3d: np.ndarray,
+    camera_height_prior: float = 1.65,
+    max_iterations: int = 150,
+    inlier_threshold: float = 0.05,
+    angle_threshold_deg: float = 20.0,
+) -> tuple[np.ndarray, float, int] | None:
+    """Fit a ground plane to 3D points in camera coordinates.
+
+    Camera coordinate system: X right, Y down, Z forward.
+    The ground plane normal vector should be close to [0, -1, 0] or [0, 1, 0].
+    We normalize the normal to point upwards (Y is negative, i.e., normal is [0, -1, 0] approx).
+    Since Y is down, a point on the ground has Y > 0.
+    Let plane equation be: n_x * x + n_y * y + n_z * z + d = 0.
+    Since ground is below the camera, y is positive, so if n_y is positive (e.g. ~1.0),
+    then d must be negative (e.g., -camera_height).
+    Thus, camera height is |d|.
+
+    Returns:
+        tuple (normal_vector, plane_distance, num_inliers) or None if fit fails.
+    """
+    n_pts = len(pts_3d)
+    if n_pts < 3:
+        return None
+
+    best_inliers = []
+    best_plane = None
+
+    # Angle constraint: normal must be close to vertical [0, 1, 0] in camera frame
+    min_ny = np.cos(np.radians(angle_threshold_deg))
+
+    # Run RANSAC (deterministic RNG for reproducibility)
+    rng = np.random.default_rng(42)
+
+    for _ in range(max_iterations):
+        # Sample 3 random points
+        idx = rng.choice(n_pts, size=3, replace=False)
+        p1, p2, p3 = pts_3d[idx]
+
+        # Calculate normal vector
+        v1 = p2 - p1
+        v2 = p3 - p1
+        normal = np.cross(v1, v2)
+        norm_val = np.linalg.norm(normal)
+        if norm_val < 1e-6:
+            continue
+        normal = normal / norm_val
+
+        # Enforce normal orientation: Y axis should be dominant
+        if abs(normal[1]) < min_ny:
+            continue
+
+        # Plane distance parameter
+        d = -np.dot(normal, p1)
+
+        # Skip degenerate planes
+        if abs(d) < 0.1 or abs(d) > 10.0 * camera_height_prior:
+            continue
+
+        # Compute inliers
+        distances = np.abs(np.dot(pts_3d, normal) + d)
+        inliers = np.where(distances < inlier_threshold)[0]
+
+        if len(inliers) > len(best_inliers):
+            best_inliers = inliers
+            best_plane = (normal, d)
+
+    if best_plane is None or len(best_inliers) < 10:
+        return None
+
+    # Refit plane using all inliers (Least Squares)
+    inlier_pts = pts_3d[best_inliers]
+    centroid = np.mean(inlier_pts, axis=0)
+    pts_centered = inlier_pts - centroid
+    cov = pts_centered.T @ pts_centered
+    
+    # SVD of covariance matrix
+    _, _, Vt = np.linalg.svd(cov)
+    # The normal is the last row of Vt (smallest singular value)
+    normal_refined = Vt[-1]
+    norm_val = np.linalg.norm(normal_refined)
+    if norm_val < 1e-6:
+        return best_plane[0], best_plane[1], len(best_inliers)
+    normal_refined = normal_refined / norm_val
+
+    # Ensure consistent sign (Y component positive)
+    if normal_refined[1] < 0:
+        normal_refined = -normal_refined
+
+    d_refined = -np.dot(normal_refined, centroid)
+
+    # Check normal orientation again after refinement
+    if abs(normal_refined[1]) < min_ny:
+        return best_plane[0], best_plane[1], len(best_inliers)
+
+    return normal_refined, d_refined, len(best_inliers)
+

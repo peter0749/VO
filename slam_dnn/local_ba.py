@@ -132,6 +132,11 @@ class LocalBundleAdjuster:
             fixed_Rs.append(R)
             fixed_ts.append(t.flatten())
 
+        # Group observations by camera index to project points in batch
+        obs_by_cam = [[] for _ in range(n_frames)]
+        for obs_idx, obs in enumerate(observations):
+            obs_by_cam[obs["cam_idx"]].append((obs["pt_idx"], obs["uv"], obs_idx))
+
         def residual_fn(params):
             rvecs = list(fixed_rvecs)
             tvecs = list(fixed_tvecs)
@@ -154,40 +159,51 @@ class LocalBundleAdjuster:
             pts_start_idx = 6 * num_opt_cams
             opt_pts = params[pts_start_idx:].reshape(n_points, 3)
 
-            residuals = []
-            
-            # 1. Reprojection residuals & depth constraints
-            for obs in observations:
-                cam_idx = obs["cam_idx"]
-                pt_idx = obs["pt_idx"]
-                uv_meas = obs["uv"]
-                pt_3d = opt_pts[pt_idx]
+            residuals = [None] * len(observations)
+            depth_residuals = [None] * len(observations)
 
-                # Project points to 2D
+            for cam_idx in range(n_frames):
+                cam_obs = obs_by_cam[cam_idx]
+                if len(cam_obs) == 0:
+                    continue
+
+                pt_indices = [item[0] for item in cam_obs]
+                uv_meass = np.array([item[1] for item in cam_obs])
+
+                # Project all points for this camera at once
+                pts_3d_cam = opt_pts[pt_indices]
                 pts_proj, _ = cv2.projectPoints(
-                    pt_3d.reshape(1, 3).astype(np.float64),
+                    pts_3d_cam.astype(np.float64),
                     rvecs[cam_idx].astype(np.float64),
                     tvecs[cam_idx].astype(np.float64),
                     K.astype(np.float64),
                     None
                 )
-                uv_proj = pts_proj.reshape(-1, 2)[0]
-                residuals.append(uv_proj - uv_meas)
+                uv_proj = pts_proj.reshape(-1, 2)
+                reproj_errs = uv_proj - uv_meass
 
-                # 2. Positive Depth Constraint: Z must be positive in camera frame
-                # Always append to keep residual vector dimension CONSTANT across iterations.
+                # Z-coordinate in camera frame: z_c = R_c[2, :] @ pt_w + t_c[2]
                 R_c = Rs[cam_idx]
                 t_c = ts[cam_idx]
-                z_c = R_c[2, 0]*pt_3d[0] + R_c[2, 1]*pt_3d[1] + R_c[2, 2]*pt_3d[2] + t_c[2]
-                depth_err = np.minimum(z_c - 0.2, 0.0)
-                residuals.append(np.array([100.0 * depth_err]))
+                z_c = pts_3d_cam[:, 0] * R_c[2, 0] + pts_3d_cam[:, 1] * R_c[2, 1] + pts_3d_cam[:, 2] * R_c[2, 2] + t_c[2]
+                depth_errs = np.minimum(z_c - 0.2, 0.0)
+
+                for k, (_, _, obs_idx) in enumerate(cam_obs):
+                    residuals[obs_idx] = reproj_errs[k]
+                    depth_residuals[obs_idx] = np.array([100.0 * depth_errs[k]])
+
+            all_residuals = []
+            for r in residuals:
+                all_residuals.append(r)
+            for dr in depth_residuals:
+                all_residuals.append(dr)
 
             # 3. Soft Scale Constraint if we only fixed camera 0
             if opt_start_idx == 1:
                 scale_err = np.linalg.norm(tvecs[1] - tvecs[0]) - init_scale
-                residuals.append(np.array([1000.0 * scale_err]))
+                all_residuals.append(np.array([1000.0 * scale_err]))
 
-            return np.concatenate(residuals)
+            return np.concatenate(all_residuals)
 
         # Run least squares with robust loss
         try:

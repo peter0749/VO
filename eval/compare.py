@@ -86,6 +86,9 @@ def run_slam_dnn_on_loader(
     min_parallax: float = 8.0,
     max_overlap: float = 0.85,
     max_keyframe_interval: int = 10,
+    depth_calib_frames: int = 50,
+    camera_height: float = 1.65,
+    depth_sliding_window_size: int = 5,
 ) -> list[np.ndarray]:
     """Run slam_dnn visual odometry on the loaded sequence.
 
@@ -140,6 +143,9 @@ def run_slam_dnn_on_loader(
         min_parallax=min_parallax,
         max_overlap=max_overlap,
         max_keyframe_interval=max_keyframe_interval,
+        depth_calib_frames=depth_calib_frames,
+        camera_height=camera_height,
+        depth_sliding_window_size=depth_sliding_window_size,
     )
     
     vo = VisualOdometry(
@@ -679,9 +685,27 @@ def main():
     )
     parser.add_argument(
         "--depth-scale-mode",
-        choices=["median_ratio", "fixed"],
+        choices=["median_ratio", "fixed", "calibrate", "ground_plane", "sliding_window"],
         default="median_ratio",
-        help="Scale alignment mode: 'median_ratio' (dynamic scale) or 'fixed' (multiply by depth-scale-factor)",
+        help="Scale alignment mode: 'median_ratio' (dynamic scale), 'fixed', 'calibrate' (calibrate and lock), 'ground_plane', or 'sliding_window'",
+    )
+    parser.add_argument(
+        "--depth-calib-frames",
+        type=int,
+        default=50,
+        help="Number of initial frames to use for self-calibration (default: 50)",
+    )
+    parser.add_argument(
+        "--camera-height",
+        type=float,
+        default=1.65,
+        help="Known physical camera height in meters for ground plane scale anchoring (default: 1.65)",
+    )
+    parser.add_argument(
+        "--depth-sliding-window-size",
+        type=int,
+        default=5,
+        help="Sliding window size for rolling scale estimation (default: 5)",
     )
     parser.add_argument(
         "--min-parallax",
@@ -774,7 +798,8 @@ def main():
                 use_depth_prior=args.use_depth_prior, depth_source=args.depth_source,
                 depth_directory=args.depth_directory, depth_scale_factor=args.depth_scale_factor,
                 depth_model_name=args.depth_model_name, depth_scale_mode=args.depth_scale_mode,
-                min_parallax=args.min_parallax, max_overlap=args.max_overlap, max_keyframe_interval=args.max_keyframe_interval
+                min_parallax=args.min_parallax, max_overlap=args.max_overlap, max_keyframe_interval=args.max_keyframe_interval,
+                depth_calib_frames=args.depth_calib_frames, camera_height=args.camera_height, depth_sliding_window_size=args.depth_sliding_window_size,
             )
             
             ours_report = compute_metrics_all(est_poses, gt_poses, label="Ours (slam_dnn)")
@@ -855,7 +880,8 @@ def main():
             use_depth_prior=args.use_depth_prior, depth_source=args.depth_source,
             depth_directory=args.depth_directory, depth_scale_factor=args.depth_scale_factor,
             depth_model_name=args.depth_model_name, depth_scale_mode=args.depth_scale_mode,
-            min_parallax=args.min_parallax, max_overlap=args.max_overlap, max_keyframe_interval=args.max_keyframe_interval
+            min_parallax=args.min_parallax, max_overlap=args.max_overlap, max_keyframe_interval=args.max_keyframe_interval,
+            depth_calib_frames=args.depth_calib_frames, camera_height=args.camera_height, depth_sliding_window_size=args.depth_sliding_window_size,
         )
         
         ours_report = compute_metrics_all(est_poses, gt_poses, label="Ours (slam_dnn)")

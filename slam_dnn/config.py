@@ -46,8 +46,12 @@ class VOConfig:
     depth_scale_factor: float = 256.0     # Scale factor to convert pixel values to meters (e.g. val / 256.0)
     depth_model_name: str = 'LiheYoung/depth-anything-small-hf'
     depth_target_resolution: tuple[int, int] = (320, 192)
-    depth_scale_mode: str = 'median_ratio' # 'median_ratio' or 'fixed'
+    depth_scale_mode: str = 'median_ratio' # 'median_ratio' | 'fixed' | 'calibrate' | 'ground_plane' | 'sliding_window'
+    depth_calib_frames: int = 50
+    camera_height: float = 1.65
+    depth_sliding_window_size: int = 5
 
     # Speed Optimizations
     target_resolution: int | None = None  # if not None, image is resized so max(H, W) <= target_resolution
+
 
