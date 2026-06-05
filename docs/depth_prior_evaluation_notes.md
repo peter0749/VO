@@ -61,6 +61,7 @@ Evaluated on Apple Silicon GPU (`device mps`):
 | Pipeline Configuration | APE RMSE (m) | APE Mean (m) | RTE RMSE (m) | RTE Mean (m) | FPS |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Pure Monocular** (SuperPoint + Classic) | 34.45 | 30.13 | 3.84 | 2.39 | **26.74** |
+| **Pure Monocular** (XFeat + XFeat) | 43.72 | 38.90 | 3.81 | 2.45 | 24.21 |
 | **Dynamic Scaling Relative Prior** (Buggy) | 150.97 | 133.58 | 4.60 | 4.49 | 15.06 |
 | **Fixed Metric Prior (Small Model)** | 20.60 | 18.44 | 0.85 | 0.78 | 15.80 |
 | **Fixed Metric Prior (Large Model)** | **10.58** | **9.77** | **0.63** | **0.57** | 8.67 |
@@ -70,6 +71,8 @@ Evaluated on Apple Silicon GPU (`device mps`):
 * **Current Best (Large Model) Side Plot**: [trajectory_comparison_side_large_metric.png](file:///Users/kuang-yujeng/SLAM-DNN/eval/reports/trajectory_comparison_side_large_metric.png)
 * **Current Best (Large Model) Error Plot**: [error_comparison_large_metric.png](file:///Users/kuang-yujeng/SLAM-DNN/eval/reports/error_comparison_large_metric.png)
 * **Previous Best (Small Model) Trajectory Plot**: [trajectory_comparison_small_metric.png](file:///Users/kuang-yujeng/SLAM-DNN/eval/reports/trajectory_comparison_small_metric.png)
+* **XFeat No-Prior Trajectory Plot**: [trajectory_comparison_xfeat_no_prior.png](file:///Users/kuang-yujeng/SLAM-DNN/eval/reports/trajectory_comparison_xfeat_no_prior.png)
+
 
 ---
 
