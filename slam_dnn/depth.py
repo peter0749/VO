@@ -147,3 +147,81 @@ class DepthAnythingEstimator:
         return depth.astype(np.float32)
 
 
+class MoGeEstimator:
+    """Estimates monocular depth and camera intrinsics using Microsoft MoGe-2 models."""
+
+    def __init__(
+        self,
+        model_name: str = "Ruicheng/moge-2-vits-normal",
+        device: str = "auto"
+    ):
+        """Initialize MoGe estimator and load model to device."""
+        import torch
+        from moge.model.v2 import MoGeModel
+
+        if device == "auto":
+            if torch.backends.mps.is_available():
+                self.device = torch.device("mps")
+            elif torch.cuda.is_available():
+                self.device = torch.device("cuda")
+            else:
+                self.device = torch.device("cpu")
+        else:
+            self.device = torch.device(device)
+
+        self.model = MoGeModel.from_pretrained(model_name).to(self.device)
+        self.model.eval()
+
+        self.last_intrinsics = None # Store the latest estimated camera intrinsics (3x3)
+        self.last_points = None     # Store the latest estimated 3D point map (H, W, 3)
+
+    def estimate_depth(self, image: np.ndarray, fov_x: float = None) -> np.ndarray:
+        """Estimate metric depth and update camera intrinsics using MoGe.
+
+        Args:
+            image: Input frame as a numpy array (BGR or Gray).
+            fov_x: Known camera horizontal FOV in degrees (optional conditioning).
+
+        Returns:
+            np.ndarray: Predicted depth map in meters (H, W).
+        """
+        import torch
+
+        # 1. Normalize and convert image to RGB
+        if len(image.shape) == 2:
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+        elif image.shape[2] == 4:
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+        else:
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        h_orig, w_orig = image_rgb.shape[:2]
+
+        # 2. Convert to (3, H, W) float32 tensor normalized to [0, 1]
+        input_tensor = torch.tensor(image_rgb / 255.0, dtype=torch.float32, device=self.device).permute(2, 0, 1)
+
+        # 3. Model Inference
+        with torch.no_grad():
+            output = self.model.infer(input_tensor, fov_x=fov_x)
+            
+            # Extract depth, points, and intrinsics
+            depth_val = output["depth"].cpu().numpy()
+            intrinsics_val = output["intrinsics"].cpu().numpy()
+            points_val = output["points"].cpu().numpy()
+
+        # 4. Scale back to original resolution if mismatched
+        if depth_val.shape[:2] != (h_orig, w_orig):
+            depth_val = cv2.resize(depth_val, (w_orig, h_orig), interpolation=cv2.INTER_LINEAR)
+            points_val = cv2.resize(points_val, (w_orig, h_orig), interpolation=cv2.INTER_LINEAR)
+
+        # Replace NaNs or Infs in depth and points
+        depth_val = np.nan_to_num(depth_val, nan=0.0, posinf=0.0, neginf=0.0)
+        points_val = np.nan_to_num(points_val, nan=0.0, posinf=0.0, neginf=0.0)
+
+        self.last_intrinsics = intrinsics_val
+        self.last_points = points_val
+
+        return np.maximum(depth_val, 0.0).astype(np.float32)
+
+
+

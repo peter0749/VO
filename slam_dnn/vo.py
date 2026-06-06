@@ -159,12 +159,19 @@ class VisualOdometry:
                 )
                 self.depth_estimator = None
             elif config.depth_source == 'model':
-                from .depth import DepthAnythingEstimator
-                self.depth_estimator = DepthAnythingEstimator(
-                    model_name=config.depth_model_name,
-                    target_resolution=config.depth_target_resolution,
-                    device=config.device
-                )
+                if 'moge' in config.depth_model_name.lower():
+                    from .depth import MoGeEstimator
+                    self.depth_estimator = MoGeEstimator(
+                        model_name=config.depth_model_name,
+                        device=config.device
+                    )
+                else:
+                    from .depth import DepthAnythingEstimator
+                    self.depth_estimator = DepthAnythingEstimator(
+                        model_name=config.depth_model_name,
+                        target_resolution=config.depth_target_resolution,
+                        device=config.device
+                    )
                 self.depth_loader = None
             else:
                 raise ValueError(f"Unknown depth_source: {config.depth_source}")
@@ -383,7 +390,14 @@ class VisualOdometry:
             if self.config.depth_source == 'directory':
                 depth = self.depth_loader.get_depth(0)
             elif self.config.depth_source == 'model':
-                depth = self.depth_estimator.estimate_depth(image)
+                from .depth import MoGeEstimator
+                if isinstance(self.depth_estimator, MoGeEstimator):
+                    K = self.camera.K
+                    W = self.camera.width
+                    fov_x_deg = float(2.0 * np.arctan(W / (2.0 * K[0, 0])) * 180.0 / np.pi)
+                else:
+                    fov_x_deg = None
+                depth = self.depth_estimator.estimate_depth(image, fov_x=fov_x_deg)
                 
                 # Default scale factor
                 s = self.config.depth_scale_factor
@@ -631,7 +645,14 @@ class VisualOdometry:
             if self.config.depth_source == 'directory':
                 depth = self.depth_loader.get_depth(self._frame_idx)
             elif self.config.depth_source == 'model':
-                depth = self.depth_estimator.estimate_depth(image)
+                from .depth import MoGeEstimator
+                if isinstance(self.depth_estimator, MoGeEstimator):
+                    K = self.camera.K
+                    W = self.camera.width
+                    fov_x_deg = float(2.0 * np.arctan(W / (2.0 * K[0, 0])) * 180.0 / np.pi)
+                else:
+                    fov_x_deg = None
+                depth = self.depth_estimator.estimate_depth(image, fov_x=fov_x_deg)
                 
                 # Default scale factor
                 s = self.config.depth_scale_factor

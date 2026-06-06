@@ -67,6 +67,17 @@ To analyze the interaction of Ground Plane self-calibration (`calibrate` mode) a
 | **Calibrate & Lock (Baseline)** | `calibrate` | No | **0.3108** | **0.4434** | 0.6598 | 9.55 |
 | **Calibrate + Local BA (Combined)** | `calibrate` | Yes | **0.3121** | **0.4989** | **0.6614** | 0.33 |
 
+### 2.4 Affine-Invariant Metric Depth: MoGe-2 vs Depth Anything V2 (Parking Sequence, 150 Frames)
+
+To evaluate the impact of affine-invariant metric depth and horizontal FOV conditioning, we compare **Microsoft MoGe-2 ViT-S Normal** (`Ruicheng/moge-2-vits-normal`) against **Depth Anything V2 Large** (`depth-anything/Depth-Anything-V2-Metric-Outdoor-Large-hf`) on the 150-frame Parking Sequence:
+
+| Depth Model | Scale Mode | APE RMSE (m) | RTE RMSE (m) | Umeyama Scale | FPS |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Depth Anything V2 Large** | `fixed` | 0.2948 | 0.4063 | 0.2499 | **10.03** |
+| **Depth Anything V2 Large** | `calibrate` | 0.3108 | 0.4434 | 0.6598 | 9.55 |
+| **MoGe-2 ViT-S Normal** | `fixed` | **0.1919** | **0.2942** | **0.8327** | 4.49 |
+| **MoGe-2 ViT-S Normal** | `calibrate` | 0.2117 | 0.3350 | 0.7567 | 4.14 |
+
 ---
 
 ## 3. Deep-Dive Performance Analysis
@@ -87,16 +98,26 @@ To analyze the interaction of Ground Plane self-calibration (`calibrate` mode) a
 * **Bundle Adjustment Vectorization Speedup**:
   Running local sliding-window BA on CPU originally took ~6.3s per frame due to non-vectorized Python loops evaluating residuals point-by-point via separate `cv2.projectPoints` calls. By grouping observations by camera index and batch-projecting them, we vectorized the cost function evaluation. This achieved a **4.6x speedup**, reducing tracking overhead to **~1.35s per frame** overall.
 
+### 3.3 MoGe-2 & Affine-Invariant Metric Depth Analysis
+* **Substantial Accuracy Gains**:
+  Switching from Depth Anything V2 Large to MoGe-2 ViT-S Normal resulted in a **34.9% reduction in APE RMSE** (from 0.2948m down to **0.1919m**) and a **27.6% reduction in RTE RMSE** (from 0.4063m down to **0.2942m**). This confirms that MoGe-2's joint estimation of focal length and geometry yields structurally superior depth maps for visual odometry.
+* **Exceptional Scale Alignment**:
+  In `fixed` scale mode, MoGe-2 achieves an Umeyama Scale of **0.8327**, which is remarkably close to physical scale (`1.0`). In contrast, Depth Anything V2 Large yields an Umeyama scale of **0.2499** (underestimating physical scale by 4x). This demonstrates the power of MoGe's focal-length-aware conditional mapping to resolve absolute scale.
+* **Ground Calibration Behavior**:
+  Because MoGe-2's native metric predictions are already highly accurate, running ground plane calibration actually slightly perturbed the scale alignment, locking in a scale factor of `1.0794` which resulted in an Umeyama scale of `0.7567` and slightly higher trajectory errors (APE RMSE of `0.2117m`). Therefore, for models like MoGe-2 that are highly scale-consistent, raw `fixed` mode is preferred.
+* **Computational Overhead**:
+  Despite using a smaller ViT-S backbone, MoGe-2 runs at **~4.5 FPS** on MPS compared to Depth Anything V2 Large's **~10.0 FPS**. This is due to MoGe's complex flow-based architecture and some unoptimized MPS operator support (raising warnings: `UserWarning: In MPS autocast, but the target dtype is not supported. Disabling autocast`).
+
 ---
 
 ## 4. Key Takeaways and SOTA Recipes
 1. **Best Configuration (Accuracy)**:
    - Extractor: `SuperPoint`
    - Matcher: `Classic` (Ratio Test)
-   - Depth Prior: `depth-anything/Depth-Anything-V2-Metric-Outdoor-Large-hf`
+   - Depth Prior: `Ruicheng/moge-2-vits-normal` (MoGe-2)
    - Scale Mode: `fixed` (Scale Factor = `1.0`)
    - Device: `mps`
 2. **Real-time Deployment**:
-   If 8.7 FPS is too slow for deployment, substituting the **Small** metric model increases speed to **15.8 FPS** while maintaining strong accuracy (APE RMSE 20.60m, RTE RMSE 0.85m).
-3. **Dataset Portability Warning**:
-   Before deploying a fixed metric prior on a new dataset, verify that the ground truth coordinate scale matches the metric depth network's scale (e.g. both in physical meters). If the target dataset uses arbitrary units or has scale offsets, a calibration factor must be applied to `--depth-scale-factor` instead of `1.0`.
+   If 10 FPS or 4.5 FPS is too slow for deployment, substituting the **Depth Anything V2 Small** metric model increases speed to **15.8 FPS** on KITTI while maintaining reasonable accuracy.
+3. **Dataset Portability**:
+   Before deploying a fixed metric prior on a new dataset, verify that the ground truth coordinate scale matches the metric depth network's scale. For traditional metric depth models, a calibration factor or `calibrate` scale mode is required to align scales. For MoGe-2, the predicted depth is directly close to physical meters and can be used with `--depth-scale-factor 1.0`.
