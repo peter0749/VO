@@ -48,6 +48,7 @@ We evaluated multiple configurations across two real-world datasets: **KITTI Seq
 | **Dynamic Scaling Metric Prior** (Fixed) | Small | `median_ratio` | 106.27 | 4.64 | 1.5301 | 15.06 |
 | **Fixed Metric Prior** | Small | `fixed` | 20.60 | 0.85 | 0.7254 | 15.80 |
 | **Fixed Metric Prior (Best)** | **Large** | **`fixed`** | **10.58** | **0.63** | **0.7177** | **8.67** |
+| **Fixed Metric Prior (MoGe-2)** | MoGe-2 ViT-S | `fixed` | 16.17 | 0.67 | 1.0985 | 5.57 |
 
 ### 2.2 Parking Sequence (599 frames)
 
