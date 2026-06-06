@@ -395,9 +395,9 @@ class VisualOdometry:
                     K = self.camera.K
                     W = self.camera.width
                     fov_x_deg = float(2.0 * np.arctan(W / (2.0 * K[0, 0])) * 180.0 / np.pi)
+                    depth = self.depth_estimator.estimate_depth(image, fov_x=fov_x_deg)
                 else:
-                    fov_x_deg = None
-                depth = self.depth_estimator.estimate_depth(image, fov_x=fov_x_deg)
+                    depth = self.depth_estimator.estimate_depth(image)
                 
                 # Default scale factor
                 s = self.config.depth_scale_factor
@@ -650,9 +650,9 @@ class VisualOdometry:
                     K = self.camera.K
                     W = self.camera.width
                     fov_x_deg = float(2.0 * np.arctan(W / (2.0 * K[0, 0])) * 180.0 / np.pi)
+                    depth = self.depth_estimator.estimate_depth(image, fov_x=fov_x_deg)
                 else:
-                    fov_x_deg = None
-                depth = self.depth_estimator.estimate_depth(image, fov_x=fov_x_deg)
+                    depth = self.depth_estimator.estimate_depth(image)
                 
                 # Default scale factor
                 s = self.config.depth_scale_factor
