@@ -57,26 +57,17 @@ We evaluated multiple configurations across two real-world datasets: **KITTI Seq
 | **Fixed Metric Prior** | Small | `fixed` | 6.52 | 2.78 | 0.2610 | 17.64 |
 | **Fixed Metric Prior** | **Large** | **`fixed`** | **2.72** | **1.23** | **0.2693** | **8.79** |
 
-### 2.3 Comparative Evaluation: Calibration & Local Bundle Adjustment (Parking Sequence, 150 Frames)
+### 2.3 Comprehensive Benchmark: Calibration, Local BA, and Model Architectures (Parking Sequence, 150 Frames)
 
-To analyze the interaction of Ground Plane self-calibration (`calibrate` mode) and local sliding-window Bundle Adjustment (`--use-joint-ba`), we ran three configurations side-by-side using the Large model:
+To compare the impact of scale calibration modes, Local Bundle Adjustment, and metric depth prior models (Depth Anything V2 Large vs. MoGe-2 ViT-S), we evaluated all configurations on the 150-frame circular Parking sequence:
 
-| Configuration | Scale Mode | Local BA | APE RMSE (m) | RTE RMSE (m) | Umeyama Scale | FPS |
+| Configuration / Depth Model | Scale Mode | Local BA | APE RMSE (m) | RTE RMSE (m) | Umeyama Scale | Processing FPS |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Fixed Anchoring (Baseline)** | `fixed` | No | **0.2948** | **0.4063** | 0.2499 | 10.03 |
-| **Calibrate & Lock (Baseline)** | `calibrate` | No | **0.3108** | **0.4434** | 0.6598 | 9.55 |
-| **Calibrate + Local BA (Combined)** | `calibrate` | Yes | **0.3121** | **0.4989** | **0.6614** | 0.33 |
-
-### 2.4 Affine-Invariant Metric Depth: MoGe-2 vs Depth Anything V2 (Parking Sequence, 150 Frames)
-
-To evaluate the impact of affine-invariant metric depth and horizontal FOV conditioning, we compare **Microsoft MoGe-2 ViT-S Normal** (`Ruicheng/moge-2-vits-normal`) against **Depth Anything V2 Large** (`depth-anything/Depth-Anything-V2-Metric-Outdoor-Large-hf`) on the 150-frame Parking Sequence:
-
-| Depth Model | Scale Mode | APE RMSE (m) | RTE RMSE (m) | Umeyama Scale | FPS |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Depth Anything V2 Large** | `fixed` | 0.2948 | 0.4063 | 0.2499 | **10.03** |
-| **Depth Anything V2 Large** | `calibrate` | 0.3108 | 0.4434 | 0.6598 | 9.55 |
-| **MoGe-2 ViT-S Normal** | `fixed` | **0.1919** | **0.2942** | **0.8327** | 4.49 |
-| **MoGe-2 ViT-S Normal** | `calibrate` | 0.2117 | 0.3350 | 0.7567 | 4.14 |
+| **Depth Anything V2 Large** (Baseline) | `fixed` | No | 0.2948 | 0.4063 | 0.2499 | **10.03** |
+| **Depth Anything V2 Large** (Baseline) | `calibrate` | No | 0.3108 | 0.4434 | 0.6598 | 9.55 |
+| **Depth Anything V2 Large** (Baseline) | `calibrate` | Yes | 0.3121 | 0.4989 | 0.6614 | 0.33 |
+| **MoGe-2 ViT-S Normal** (New SOTA) | `fixed` | No | **0.1919** | **0.2942** | **0.8327** | 4.49 |
+| **MoGe-2 ViT-S Normal** (New SOTA) | `calibrate` | No | 0.2117 | 0.3350 | 0.7567 | 4.14 |
 
 ---
 
